@@ -1,7 +1,5 @@
 // Admin panel of Silence: a single page with one view per hash (#/endpoints...).
-import { ezNavbar } from "../ez-ui/js/navbar.js";
-import { ezThemeToggle } from "../ez-ui/js/theme.js";
-import { api, esc, session } from "./ui.js";
+import { api, esc, session, dialogOpen } from "./ui.js";
 import * as overview from "./pages/overview.js";
 import * as database from "./pages/database.js";
 import * as users from "./pages/users.js";
@@ -52,7 +50,7 @@ function showSession() {
   box.hidden = !current;
   if (current) {
     box.innerHTML = `Trying the API as <strong>${esc(current.label)}</strong>
-      <button class="ez-button ez-button--secondary sa-button--small" type="button" id="end-session">End</button>`;
+      <button class="uk-button uk-button-default uk-button-small" type="button" id="end-session">End</button>`;
     box.querySelector("#end-session").addEventListener("click", () => session.set(null));
   }
 }
@@ -65,7 +63,7 @@ async function watchRevision() {
   try {
     const s = await api("/status");
     if (lastRevision !== null && s.revision !== lastRevision && !rendering
-        && !document.querySelector("#dialog").open && !document.querySelector("#try-form")) {
+        && !dialogOpen() && !document.querySelector("#try-form")) {
       lastRevision = s.revision;
       await render();
       return;
@@ -80,14 +78,16 @@ async function render() {
   rendering = true;
   const name = location.hash.replace(/^#\/?/, "").split("/")[0];
   const page = routes[name] ?? overview;
-  for (const link of document.querySelectorAll(".ez-navbar__links a")) {
+  for (const link of document.querySelectorAll(".sa-nav a")) {
     const target = link.getAttribute("href").replace(/^#\/?/, "");
+    link.parentElement.classList.toggle("uk-active", target === name);
     if (target === name) {
       link.setAttribute("aria-current", "page");
     } else {
       link.removeAttribute("aria-current");
     }
   }
+  document.querySelector("#nav").classList.remove("sa-nav--open");
   if (current?.leave) {
     current.leave();
   }
@@ -112,14 +112,12 @@ async function checkCompatibility() {
   }
   if (app.info.api !== PANEL_API) {
     document.querySelector("#page").insertAdjacentHTML("beforebegin",
-      `<div class="ez-alert ez-alert--warning">This panel needs version ${PANEL_API} of the admin API of Silence,
+      `<div class="uk-alert uk-alert-warning sa-main">This panel needs version ${PANEL_API} of the admin API of Silence,
         and this Silence has version ${app.info.api}. Run <code>silence admin update</code> or update Silence.</div>`);
   }
 }
 
 async function main() {
-  ezNavbar(document.querySelector(".ez-navbar"));
-  ezThemeToggle(document.querySelector("#theme"));
   document.addEventListener("sa-session", showSession);
   window.addEventListener("hashchange", render);
   showSession();

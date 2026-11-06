@@ -4,21 +4,21 @@ import { esc } from "../ui.js";
 export async function render(main, app) {
   const s = app.status;
   if (!s) {
-    main.innerHTML = `<h1>Silence</h1><div class="ez-alert ez-alert--error">Cannot reach Silence.</div>`;
+    main.innerHTML = `<h1>Silence</h1><div class="uk-alert uk-alert-danger">Cannot reach Silence.</div>`;
     return;
   }
   const dbOk = !s.database.error;
   const step = (done, title, text, href, action) => `
     <li class="${done ? "sa-done" : ""}">
-      <div><strong>${title}</strong><br><span class="sa-muted">${text}</span></div>
-      <a class="ez-button ${done ? "ez-button--secondary" : ""}" href="${href}">${action}</a>
+      <div><strong>${title}</strong><br><span class="uk-text-muted">${text}</span></div>
+      <a class="uk-button ${done ? "uk-button-default" : "uk-button-primary"}" href="${href}">${action}</a>
     </li>`;
 
   const errors = [...s.errors.endpoints, ...s.errors.tests];
   main.innerHTML = `
     <h1>${esc(app.info?.project ?? "")}</h1>
-    <p class="sa-muted sa-small">${esc(app.info?.projectDir ?? "")}</p>
-    ${errors.length ? `<div class="ez-alert ez-alert--error"><strong>Problems in the project files</strong>
+    <p class="uk-text-muted sa-small">${esc(app.info?.projectDir ?? "")}</p>
+    ${errors.length ? `<div class="uk-alert uk-alert-danger"><strong>Problems in the project files</strong>
       <ul>${errors.map((e) => `<li>${esc(e)}</li>`).join("")}</ul></div>` : ""}
     <ol class="sa-steps">
       ${step(dbOk, "Connect to the database",

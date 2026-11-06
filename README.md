@@ -3,7 +3,11 @@
 The admin panel of [Silence](https://github.com/IISSI-US/silence-py) 3: a web app that
 administers a Silence project through its admin API (`/_silence/v1`, see
 `docs/admin-api.md` in Silence). Plain HTML, CSS and JavaScript modules, with
-[ez-ui](https://github.com/IISSI-US/ez-ui) and its own stylesheet; no framework, no build.
+[UIkit](https://getuikit.com) (copied in `admin/vendor/uikit/`, MIT, no CDN) and its own
+stylesheet (`admin/css/admin.css`, `sa-` prefix); no framework, no build.
+
+It does not use ez-ui on purpose: ez-ui is what the students use (and customize) in their
+own web apps, so the panel looks clearly different and gives them no ez-ui code.
 
 ## How it reaches the projects
 

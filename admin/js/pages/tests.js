@@ -15,17 +15,17 @@ const EXAMPLE = {
 export async function render(main, app) {
   main.innerHTML = `
     <h1>Tests</h1>
-    <p class="sa-muted">Each test runs inside a transaction that is rolled back: the database is left as it was.
+    <p class="uk-text-muted">Each test runs inside a transaction that is rolled back: the database is left as it was.
       They can also be run in the console with <code>silence test</code>.</p>
     <div class="sa-toolbar">
-      <button class="ez-button" type="button" id="run">Run all</button>
-      <button class="ez-button ez-button--secondary" type="button" id="generate">Generate from the endpoints</button>
-      <button class="ez-button ez-button--secondary" type="button" id="new">New composed test</button>
-      <button class="ez-button ez-button--secondary" type="button" id="export">Export .http</button>
+      <button class="uk-button uk-button-primary" type="button" id="run">Run all</button>
+      <button class="uk-button uk-button-default" type="button" id="generate">Generate from the endpoints</button>
+      <button class="uk-button uk-button-default" type="button" id="new">New composed test</button>
+      <button class="uk-button uk-button-default" type="button" id="export">Export .http</button>
       <span class="sa-toolbar__spacer"></span>
       <span id="summary"></span>
-      <label for="filter" class="sa-muted">Table</label>
-      <select id="filter"><option value="">All</option></select>
+      <label class="uk-text-muted" for="filter">Table</label>
+      <select class="uk-select" id="filter"><option value="">All</option></select>
     </div>
     <div id="errors"></div>
     <div id="list"></div>`;
@@ -73,11 +73,11 @@ async function load(main) {
 async function run(main, names) {
   const button = main.querySelector("#run");
   button.disabled = true;
-  button.setAttribute("aria-busy", "true");
+  button.innerHTML = `<span uk-spinner="ratio: .6"></span> Running…`;
   const visible = names ?? (state.filter ? state.tests.filter((t) => t.table === state.filter).map((t) => t.name) : null);
   const res = await attempt(() => api("/tests/run", "POST", { names: visible }));
   button.disabled = false;
-  button.removeAttribute("aria-busy");
+  button.textContent = "Run all";
   if (!res) return;
   for (const r of res.results) {
     state.results[r.name] = r;
@@ -89,7 +89,7 @@ async function run(main, names) {
 
 function draw(main) {
   main.querySelector("#errors").innerHTML = state.errors.length
-    ? `<div class="ez-alert ez-alert--error"><strong>Tests not loaded</strong>
+    ? `<div class="uk-alert uk-alert-danger"><strong>Tests not loaded</strong>
         <ul>${state.errors.map((e) => `<li>${esc(e)}</li>`).join("")}</ul></div>` : "";
   const results = Object.values(state.results);
   const passed = results.filter((r) => r.passed).length;
@@ -99,7 +99,7 @@ function draw(main) {
   const tests = state.tests.filter((t) => !state.filter || t.table === state.filter);
   const list = main.querySelector("#list");
   if (!tests.length) {
-    list.innerHTML = `<p class="sa-muted">No tests yet: generate them from the endpoints.</p>`;
+    list.innerHTML = `<p class="uk-text-muted">No tests yet: generate them from the endpoints.</p>`;
     return;
   }
   const byTable = {};
@@ -109,7 +109,7 @@ function draw(main) {
   list.innerHTML = Object.entries(byTable).sort().map(([table, items]) => `
     <section class="sa-section">
       <h2>${esc(table)}</h2>
-      <div class="ez-scroll"><table class="sa-table">
+      <div class="uk-overflow-auto"><table class="uk-table uk-table-divider uk-table-small uk-table-hover sa-table">
         <thead><tr><th>Result</th><th>Test</th><th>File</th><th></th></tr></thead>
         <tbody>${items.map(row).join("")}</tbody>
       </table></div>
@@ -123,23 +123,23 @@ function draw(main) {
 
 function row(t) {
   const r = state.results[t.name];
-  const result = !r ? `<span class="sa-muted">—</span>` : r.passed ? `<span class="sa-pass">PASS</span>` : `<span class="sa-fail">FAIL</span>`;
+  const result = !r ? `<span class="uk-text-muted">—</span>` : r.passed ? `<span class="sa-pass">PASS</span>` : `<span class="sa-fail">FAIL</span>`;
   const first = t.steps[0]?.request ?? {};
-  const badge = t.source === "auto" ? `<span class="ez-badge">auto</span>` : `<span class="ez-badge ez-badge--primary">custom</span>`;
+  const badge = t.source === "auto" ? `<span class="uk-label sa-label-auto">auto</span>` : `<span class="uk-label">custom</span>`;
   return `
     <tr>
       <td>${result}</td>
-      <td><strong>${esc(t.name)}</strong> ${t.composite ? `<span class="ez-badge">${t.steps.length} steps</span>` : ""}<br>
+      <td><strong>${esc(t.name)}</strong> ${t.composite ? `<span class="uk-label sa-label-auto">${t.steps.length} steps</span>` : ""}<br>
         <span class="sa-small">${method(first.method ?? "GET")} <span class="sa-route">${esc(first.path)}</span></span><br>
-        <span class="sa-muted sa-small">${esc(t.description)}</span>
+        <span class="uk-text-muted sa-small">${esc(t.description)}</span>
         ${r && !r.passed ? stepsDetail(r.steps) : ""}</td>
       <td class="sa-small">${badge}<br>${esc(t.file)}.json</td>
       <td class="sa-actions">
-        <button class="ez-button sa-button--small" type="button" data-action="run" data-name="${esc(t.name)}">Run</button>
+        <button class="uk-button uk-button-primary uk-button-small" type="button" data-action="run" data-name="${esc(t.name)}">Run</button>
         ${t.source === "auto"
-          ? `<button class="ez-button ez-button--secondary sa-button--small" type="button" data-action="customize" data-name="${esc(t.name)}">Customize</button>`
-          : `<button class="ez-button ez-button--secondary sa-button--small" type="button" data-action="edit" data-name="${esc(t.name)}">Edit</button>
-             <button class="ez-button ez-button--danger sa-button--small" type="button" data-action="remove" data-name="${esc(t.name)}">Delete</button>`}
+          ? `<button class="uk-button uk-button-default uk-button-small" type="button" data-action="customize" data-name="${esc(t.name)}">Customize</button>`
+          : `<button class="uk-button uk-button-default uk-button-small" type="button" data-action="edit" data-name="${esc(t.name)}">Edit</button>
+             <button class="uk-button uk-button-danger uk-button-small" type="button" data-action="remove" data-name="${esc(t.name)}">Delete</button>`}
       </td>
     </tr>`;
 }
@@ -150,7 +150,7 @@ function stepsDetail(steps) {
       Step ${s.index + 1}: ${method(s.method)} <span class="sa-route">${esc(s.path)}</span>
       ${s.status ? `→ <span class="sa-status ${statusClass(s.status)}">${s.status}</span>` : ""}
       ${s.failures.length ? `<br>${s.failures.map(esc).join("<br>")}
-        <details><summary>Response</summary><pre class="sa-pre">${json(s.response)}</pre></details>` : ""}
+        <details><summary>Response</summary><pre class="sa-pre uk-margin-small">${json(s.response)}</pre></details>` : ""}
     </div>`).join("");
 }
 
@@ -186,15 +186,15 @@ async function edit(main, t, draft) {
   const name = draft?.name ?? t?.name ?? "";
   const file = draft?.file ?? t?.file ?? (state.filter || "my_table");
   const v = await dialog(t ? `Edit ${t.name}` : "New composed test", `
-    <p class="sa-small sa-muted">Steps: <code>request</code> (method, path after the API prefix, <code>as</code>: the id of the user,
+    <p class="sa-small uk-text-muted">Steps: <code>request</code> (method, path after the API prefix, <code>as</code>: the id of the user,
       body), <code>expect</code> (status, count, row, message) and <code>save</code> (variables for the next steps, as <code>\${name}</code>).</p>
     <div class="sa-form">
-      <div class="ez-field"><label for="t-name">Name</label><input id="t-name" name="name" value="${esc(name)}" required pattern="\\w+"></div>
-      <div class="ez-field"><label for="t-file">File (tests/….json)</label><input id="t-file" name="file" value="${esc(file)}" required pattern="[\\w-]+"></div>
+      <div class="sa-field"><label class="uk-form-label" for="t-name">Name</label><input class="uk-input" id="t-name" name="name" value="${esc(name)}" required pattern="\\w+"></div>
+      <div class="sa-field"><label class="uk-form-label" for="t-file">File (tests/….json)</label><input class="uk-input" id="t-file" name="file" value="${esc(file)}" required pattern="[\\w-]+"></div>
     </div>
-    <div class="ez-field"><label for="t-data">Test (JSON)</label>
-      <textarea id="t-data" name="data" class="sa-code" spellcheck="false">${esc(typeof data === "string" ? data : JSON.stringify(data, null, 2))}</textarea></div>
-    <div class="sa-toolbar"><button class="ez-button ez-button--secondary" type="button" id="t-try">Try the steps</button></div>
+    <div class="sa-field"><label class="uk-form-label" for="t-data">Test (JSON)</label>
+      <textarea id="t-data" name="data" class="uk-textarea sa-code" spellcheck="false">${esc(typeof data === "string" ? data : JSON.stringify(data, null, 2))}</textarea></div>
+    <div class="sa-toolbar"><button class="uk-button uk-button-default" type="button" id="t-try">Try the steps</button></div>
     <div id="t-result"></div>`, "Save");
 
   // The dialog is closed: bind "try" is done below, before awaiting, see bindTryInDialog
@@ -233,6 +233,6 @@ document.addEventListener("click", async (event) => {
   const res = await attempt(() => api("/tests/try", "POST", { steps: parsed.steps }));
   if (res) {
     document.querySelector("#t-result").innerHTML = stepsDetail(res.steps) +
-      (res.steps.length < parsed.steps.length ? `<p class="sa-small sa-muted">The next steps were not run.</p>` : "");
+      (res.steps.length < parsed.steps.length ? `<p class="sa-small uk-text-muted">The next steps were not run.</p>` : "");
   }
 });

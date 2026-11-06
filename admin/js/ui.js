@@ -1,6 +1,6 @@
-// Helpers shared by the pages of the admin panel.
-import { ezToast } from "../ez-ui/js/toast.js";
-import { ezConfirm } from "../ez-ui/js/dialog.js";
+// Helpers shared by the pages of the admin panel. UIkit (global) gives the modal
+// dialog and the notifications.
+/* global UIkit */
 
 /** The admin API of Silence that this panel uses (see panel.json). */
 export const API = "/_silence/v1";
@@ -32,11 +32,18 @@ export function esc(value) {
   })[c]);
 }
 
+const STATUS = { info: "primary", success: "success", warning: "warning", error: "danger" };
+
 export function toast(message, type = "info") {
-  ezToast(message, type, type === "error" ? 8000 : 4000);
+  UIkit.notification({
+    message: esc(message),
+    status: STATUS[type] ?? "primary",
+    pos: "bottom-right",
+    timeout: type === "error" ? 8000 : 4000,
+  });
 }
 
-/** Runs an async action showing its error (if any) in a toast. */
+/** Runs an async action showing its error (if any) in a notification. */
 export async function attempt(action, success) {
   try {
     const res = await action();
@@ -51,20 +58,38 @@ export async function attempt(action, success) {
 }
 
 /** Opens the dialog with some HTML; resolves to the form's values, or null if cancelled. */
-export async function dialog(title, html, okText = "OK") {
-  const dlg = document.querySelector("#dialog");
-  dlg.querySelector("#dialog-title").textContent = title;
-  dlg.querySelector("#dialog-body").innerHTML = html;
-  dlg.querySelector("#dialog-ok").textContent = okText;
-  const confirmed = await ezConfirm(dlg);
-  if (!confirmed) {
-    return null;
-  }
-  const values = {};
-  for (const field of dlg.querySelectorAll("[name]")) {
-    values[field.name] = field.type === "checkbox" ? field.checked : field.value;
-  }
-  return values;
+export function dialog(title, html, okText = "OK") {
+  const element = document.querySelector("#dialog");
+  const form = element.querySelector("#dialog-form");
+  element.querySelector("#dialog-title").textContent = title;
+  element.querySelector("#dialog-body").innerHTML = html;
+  element.querySelector("#dialog-ok").textContent = okText;
+  const modal = UIkit.modal(element);
+
+  return new Promise((resolve) => {
+    let values = null;
+    function submit(event) {
+      event.preventDefault();
+      values = {};
+      for (const field of form.querySelectorAll("[name]")) {
+        values[field.name] = field.type === "checkbox" ? field.checked : field.value;
+      }
+      modal.hide();
+    }
+    function hidden(event) {
+      if (event.target !== element) return;  // Ignore the events of other components inside
+      form.removeEventListener("submit", submit);
+      UIkit.util.off(element, "hidden", hidden);
+      resolve(values);
+    }
+    form.addEventListener("submit", submit);
+    UIkit.util.on(element, "hidden", hidden);
+    modal.show();
+  });
+}
+
+export function dialogOpen() {
+  return document.querySelector("#dialog").classList.contains("uk-open");
 }
 
 export async function confirmAction(title, text, okText = "Continue") {
@@ -73,6 +98,10 @@ export async function confirmAction(title, text, okText = "Continue") {
 
 export function method(m) {
   return `<span class="sa-method sa-method--${esc(m)}">${esc(m)}</span>`;
+}
+
+export function source(s) {
+  return s === "auto" ? `<span class="uk-label sa-label-auto">auto</span>` : `<span class="uk-label">custom</span>`;
 }
 
 export function statusClass(code) {

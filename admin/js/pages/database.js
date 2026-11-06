@@ -9,18 +9,18 @@ export async function render(main, app) {
     <h1>Database</h1>
     <section class="sa-section">
       <h2>Connection</h2>
-      <p class="sa-muted">Silence uses an existing database: create it and load its data first
+      <p class="uk-text-muted">Silence uses an existing database: create it and load its data first
         (for example, with the scripts of the project's <code>sql/</code> folder).</p>
       <form class="sa-form" id="db-form">
-        <div class="ez-field"><label for="db-host">Host</label><input id="db-host" name="host" value="${esc(db.host)}" required></div>
-        <div class="ez-field"><label for="db-port">Port</label><input id="db-port" name="port" type="number" value="${esc(db.port)}" required></div>
-        <div class="ez-field"><label for="db-user">User</label><input id="db-user" name="user" value="${esc(db.user)}" required></div>
-        <div class="ez-field"><label for="db-password">Password</label><input id="db-password" name="password" type="password" value="${esc(db.password)}"></div>
-        <div class="ez-field"><label for="db-name">Database</label>
-          <select id="db-name" name="name"><option value="${esc(db.name)}">${esc(db.name || "(choose one)")}</option></select></div>
+        <div class="sa-field"><label class="uk-form-label" for="db-host">Host</label><input class="uk-input" id="db-host" name="host" value="${esc(db.host)}" required></div>
+        <div class="sa-field"><label class="uk-form-label" for="db-port">Port</label><input class="uk-input" id="db-port" name="port" type="number" value="${esc(db.port)}" required></div>
+        <div class="sa-field"><label class="uk-form-label" for="db-user">User</label><input class="uk-input" id="db-user" name="user" value="${esc(db.user)}" required></div>
+        <div class="sa-field"><label class="uk-form-label" for="db-password">Password</label><input class="uk-input" id="db-password" name="password" type="password" value="${esc(db.password)}"></div>
+        <div class="sa-field"><label class="uk-form-label" for="db-name">Database</label>
+          <select class="uk-select" id="db-name" name="name"><option value="${esc(db.name)}">${esc(db.name || "(choose one)")}</option></select></div>
         <div class="sa-toolbar">
-          <button class="ez-button ez-button--secondary" type="button" id="db-list">Load the databases</button>
-          <button class="ez-button" type="submit">Test and save</button>
+          <button class="uk-button uk-button-default" type="button" id="db-list">Load the databases</button>
+          <button class="uk-button uk-button-primary" type="submit">Test and save</button>
         </div>
       </form>
       <p id="db-result"></p>
@@ -28,7 +28,7 @@ export async function render(main, app) {
 
     <section class="sa-section" id="auth-section">
       <h2>Users table</h2>
-      <p class="sa-muted">The table with the users of your application: it enables <code>POST ${esc(app.status.apiPrefix)}/login</code>
+      <p class="uk-text-muted">The table with the users of your application: it enables <code>POST ${esc(app.status.apiPrefix)}/login</code>
         and <code>/register</code>, sessions, roles (a column of the table) and owners.</p>
       <div id="auth-body"></div>
     </section>`;
@@ -67,7 +67,7 @@ export async function render(main, app) {
 async function renderAuth(main, app) {
   const body = main.querySelector("#auth-body");
   if (app.status.database.error) {
-    body.innerHTML = `<div class="ez-alert ez-alert--warning">Connect to the database first.</div>`;
+    body.innerHTML = `<div class="uk-alert uk-alert-warning">Connect to the database first.</div>`;
     return;
   }
   const auth = (await api("/config")).config.auth;
@@ -79,22 +79,22 @@ async function renderAuth(main, app) {
 
   body.innerHTML = `
     <form class="sa-form" id="auth-form">
-      <div class="ez-field"><label for="auth-table">Table</label>
-        <select id="auth-table" name="table">${options(tables.map((t) => t.name), auth.table, "(not linked)")}</select></div>
-      <div class="ez-field"><label for="auth-identifier">Identifier</label><select id="auth-identifier" name="identifier"></select></div>
-      <div class="ez-field"><label for="auth-password">Password</label><select id="auth-password" name="password"></select></div>
-      <div class="ez-field"><label for="auth-role">Role (optional)</label><select id="auth-role" name="role"></select></div>
-      <div class="ez-field"><label for="auth-active">Active (optional)</label><select id="auth-active" name="active"></select></div>
-      <div class="ez-field"><label for="auth-mode">Passwords</label>
-        <select id="auth-mode" name="password_mode">
+      <div class="sa-field"><label class="uk-form-label" for="auth-table">Table</label>
+        <select class="uk-select" id="auth-table" name="table">${options(tables.map((t) => t.name), auth.table, "(not linked)")}</select></div>
+      <div class="sa-field"><label class="uk-form-label" for="auth-identifier">Identifier</label><select class="uk-select" id="auth-identifier" name="identifier"></select></div>
+      <div class="sa-field"><label class="uk-form-label" for="auth-password">Password</label><select class="uk-select" id="auth-password" name="password"></select></div>
+      <div class="sa-field"><label class="uk-form-label" for="auth-role">Role (optional)</label><select class="uk-select" id="auth-role" name="role"></select></div>
+      <div class="sa-field"><label class="uk-form-label" for="auth-active">Active (optional)</label><select class="uk-select" id="auth-active" name="active"></select></div>
+      <div class="sa-field"><label class="uk-form-label" for="auth-mode">Passwords</label>
+        <select class="uk-select" id="auth-mode" name="password_mode">
           <option value="argon2" ${auth.password_mode === "argon2" ? "selected" : ""}>Encrypted (argon2)</option>
           <option value="plain" ${auth.password_mode === "plain" ? "selected" : ""}>Plain text</option>
         </select></div>
-      <div class="ez-field"><label for="auth-default-role">Role of new users (register)</label>
-        <input id="auth-default-role" name="default_role" value="${esc(auth.default_role)}"></div>
-      <div class="ez-field"><label><input type="checkbox" name="login" ${auth.login ? "checked" : ""}> Login</label>
-        <label><input type="checkbox" name="register" ${auth.register ? "checked" : ""}> Register</label></div>
-      <div class="sa-toolbar"><button class="ez-button" type="submit">Save</button></div>
+      <div class="sa-field"><label class="uk-form-label" for="auth-default-role">Role of new users (register)</label>
+        <input class="uk-input" id="auth-default-role" name="default_role" value="${esc(auth.default_role)}"></div>
+      <div class="sa-field"><label><input class="uk-checkbox" type="checkbox" name="login" ${auth.login ? "checked" : ""}> Login</label>
+        <label><input class="uk-checkbox" type="checkbox" name="register" ${auth.register ? "checked" : ""}> Register</label></div>
+      <div class="sa-toolbar"><button class="uk-button uk-button-primary" type="submit">Save</button></div>
     </form>`;
 
   const form = body.querySelector("#auth-form");

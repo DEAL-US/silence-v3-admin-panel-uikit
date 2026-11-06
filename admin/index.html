@@ -5,49 +5,48 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Silence admin</title>
   <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
-  <script src="ez-ui/js/theme-init.js"></script>
-  <link rel="stylesheet" href="ez-ui/css/ez-ui.css">
+  <link rel="stylesheet" href="vendor/uikit/css/uikit.min.css">
   <link rel="stylesheet" href="css/admin.css">
+  <script src="vendor/uikit/js/uikit.min.js"></script>
+  <script src="vendor/uikit/js/uikit-icons.min.js"></script>
   <script type="module" src="js/main.js"></script>
 </head>
 <body>
   <div class="sa-layout">
-    <nav class="ez-navbar ez-navbar--side sa-side" aria-label="Admin panel">
-      <div class="ez-navbar__inner">
-        <a class="ez-navbar__brand sa-brand" href="#/">Silence <span class="sa-brand__sub">admin</span></a>
-        <button class="ez-button ez-button--secondary ez-navbar__toggle" type="button" aria-expanded="false">Menu</button>
-        <ul class="ez-navbar__links">
-          <li><a href="#/">Overview</a></li>
-          <li><a href="#/database">Database <span class="sa-dot" id="dot-database"></span></a></li>
-          <li><a href="#/users">Users</a></li>
-          <li><a href="#/endpoints">Endpoints <span class="ez-badge" id="count-endpoints"></span></a></li>
-          <li><a href="#/tests">Tests <span class="ez-badge" id="count-tests"></span></a></li>
-          <li><a href="#/stats">Statistics</a></li>
-        </ul>
-        <div class="sa-side__footer">
-          <p class="sa-project" id="project-name"></p>
-          <p><a id="link-web" href="/" target="_blank">Open the web app</a> · <a id="link-api" href="/api" target="_blank">API</a></p>
-          <p id="acting-as" class="sa-acting" hidden></p>
-          <button class="ez-button ez-button--secondary ez-theme-toggle" type="button" id="theme">
-            <span class="ez-theme-toggle__to-dark">Dark theme</span>
-            <span class="ez-theme-toggle__to-light">Light theme</span>
-          </button>
-          <p class="sa-version" id="version"></p>
-        </div>
+    <aside class="sa-side uk-light">
+      <a class="sa-brand" href="#/"><span uk-icon="icon: database; ratio: 1.3"></span> Silence <span class="sa-brand__sub">admin</span></a>
+      <button class="uk-button uk-button-default uk-button-small sa-menu-toggle" type="button"
+              uk-toggle="target: #nav; cls: sa-nav--open" aria-controls="nav">Menu</button>
+      <ul class="uk-nav uk-nav-default sa-nav" id="nav">
+        <li><a href="#/"><span uk-icon="home"></span> Overview</a></li>
+        <li><a href="#/database"><span uk-icon="database"></span> Database <span class="sa-dot" id="dot-database"></span></a></li>
+        <li><a href="#/users"><span uk-icon="users"></span> Users</a></li>
+        <li><a href="#/endpoints"><span uk-icon="link"></span> Endpoints <span class="uk-badge" id="count-endpoints"></span></a></li>
+        <li><a href="#/tests"><span uk-icon="check"></span> Tests <span class="uk-badge" id="count-tests"></span></a></li>
+        <li><a href="#/stats"><span uk-icon="settings"></span> Statistics</a></li>
+      </ul>
+      <div class="sa-side__footer">
+        <p class="sa-project" id="project-name"></p>
+        <p><a id="link-web" href="/" target="_blank">Web app <span uk-icon="icon: forward; ratio: .8"></span></a>
+          · <a id="link-api" href="/api" target="_blank">API</a></p>
+        <div id="acting-as" class="sa-acting" hidden></div>
+        <p class="sa-version" id="version"></p>
       </div>
-    </nav>
+    </aside>
     <main class="sa-main" id="page" aria-live="polite"></main>
   </div>
 
-  <dialog class="ez-dialog sa-dialog" id="dialog">
-    <form method="dialog" id="dialog-form">
-      <h2 id="dialog-title"></h2>
-      <div id="dialog-body"></div>
-      <div class="ez-dialog__actions">
-        <button class="ez-button ez-button--secondary" value="cancel" formnovalidate>Cancel</button>
-        <button class="ez-button" value="confirm" id="dialog-ok">OK</button>
-      </div>
-    </form>
-  </dialog>
+  <div id="dialog" uk-modal="bg-close: false; stack: true">
+    <div class="uk-modal-dialog sa-dialog">
+      <form id="dialog-form">
+        <div class="uk-modal-header"><h2 class="uk-modal-title" id="dialog-title"></h2></div>
+        <div class="uk-modal-body" id="dialog-body"></div>
+        <div class="uk-modal-footer uk-text-right">
+          <button class="uk-button uk-button-default uk-modal-close" type="button">Cancel</button>
+          <button class="uk-button uk-button-primary" type="submit" id="dialog-ok">OK</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </body>
 </html>
