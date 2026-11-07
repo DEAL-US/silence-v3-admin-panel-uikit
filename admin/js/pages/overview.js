@@ -14,7 +14,7 @@ export async function render(main, app) {
       <a class="uk-button ${done ? "uk-button-default" : "uk-button-primary"}" href="${href}">${action}</a>
     </li>`;
 
-  const errors = [...s.errors.endpoints, ...s.errors.tests];
+  const errors = [...(s.errors.config ?? []).map((e) => `silence.json: ${e}`), ...s.errors.endpoints, ...s.errors.tests];
   main.innerHTML = `
     <h1>${esc(app.info?.project ?? "")}</h1>
     <p class="uk-text-muted sa-small">${esc(app.info?.projectDir ?? "")}</p>
