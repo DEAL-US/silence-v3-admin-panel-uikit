@@ -2,7 +2,7 @@
 // of silence.json: #/overview/login (login, register and passwords), #/overview/server and
 // #/overview/advanced (sessions, database scripts, JS API, debug, admin panel). The database
 // connection and the users table are in Database. Only the values that change are saved.
-import { api, esc, attempt, editing, toast } from "../ui.js";
+import { api, esc, attempt, editing, toast, iconButton } from "../ui.js";
 
 const TABS = { start: "Getting started", login: "Login and passwords", server: "Server", advanced: "Advanced" };
 
@@ -127,11 +127,15 @@ const FORMS = {
   advanced(c) {
     return `
       <h3>Database scripts</h3>
-      ${help(`The scripts of <code>sql/</code> that create the database again, one per line and in the order to run them
-        (<em>Reload</em> in Database and Tests, or <code>silence createdb</code>).`)}
-      <div class="sa-form"><div class="sa-field sa-span"><label class="uk-form-label" for="set-scripts">Scripts</label>
-        <textarea class="uk-textarea sa-code" id="set-scripts" data-section="database" data-type="lines" name="scripts"
-          rows="4" placeholder="create_tables.sql">${esc((c.database.scripts ?? []).join("\n"))}</textarea></div></div>
+      ${help(`The scripts of the project's <code>sql/</code> folder that create the database again, in the order to run
+        them (<em>Reload the database</em> in Database and Tests, or <code>silence createdb</code>).`)}
+      <input type="hidden" data-section="database" data-type="json" name="scripts" value="${esc(JSON.stringify(c.database.scripts ?? []))}">
+      <ol class="sa-steps-list" id="scripts-list"></ol>
+      <div class="sa-toolbar">
+        <label class="uk-button uk-button-default" for="scripts-file">Add scripts…</label>
+        <input type="file" id="scripts-file" accept=".sql" multiple hidden>
+        <span class="uk-text-muted sa-small">Choose them in the <code>sql/</code> folder of the project.</span>
+      </div>
       <h3>Sessions</h3>
       <div class="sa-form">${field("auth", "token_max_age", "Duration of a session (seconds)", c.auth.token_max_age, "number", 'min="60"')}</div>
       <h3>JS API for the web app</h3>
@@ -153,14 +157,60 @@ function valuesOf(form) {
     if (el.type === "checkbox") section[el.name] = el.checked;
     else if (el.type === "radio") { if (el.checked) section[el.name] = el.value; }
     else if (el.type === "number") section[el.name] = Number(el.value);
-    else if (el.dataset.type === "lines") section[el.name] = el.value.split("\n").map((x) => x.trim()).filter(Boolean);
+    else if (el.dataset.type === "json") section[el.name] = JSON.parse(el.value);
     else section[el.name] = el.value;
   }
   return values;
 }
 
+/** The list of the database scripts: added with the file explorer, moved up and down, removed */
+function scriptsList(form, app) {
+  // The ones that Silence says are not in sql/ (in the errors of the configuration)
+  const absent = new Set((app.status.errors.config ?? []).map((e) => e.match(/^database\.scripts: there is no sql\/(.+)$/)?.[1]).filter(Boolean));
+  const field = form.querySelector('[name="scripts"]');
+  const list = form.querySelector("#scripts-list");
+  if (!field || !list) return;
+  const get = () => JSON.parse(field.value);
+  const set = (scripts) => {
+    field.value = JSON.stringify(scripts);
+    form.dispatchEvent(new Event("input"));  // As if typed: the page is being edited
+    draw();
+  };
+  const draw = () => {
+    const scripts = get();
+    list.innerHTML = scripts.length ? scripts.map((s, i) => `<li data-i="${i}">
+      <code class="sa-unit${absent.has(s) ? " sa-unit--missing" : ""}">${esc(s)}</code>
+      ${absent.has(s) ? `<span class="uk-text-danger sa-small">(it is not in sql/)</span>` : ""}
+      <span class="sa-toolbar__spacer"></span>
+      ${iconButton("arrow-up", "Run it before", { action: "up" })}${iconButton("arrow-down", "Run it after", { action: "down" })}${iconButton("close", "Remove", { action: "remove", danger: true })}
+    </li>`).join("") : `<li class="uk-text-muted sa-steps-list__empty">None: add the scripts that create the tables and load the data.</li>`;
+  };
+  list.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-action]");
+    if (!button) return;
+    const scripts = get();
+    const i = Number(button.closest("li").dataset.i);
+    const action = button.dataset.action;
+    if (action === "remove") scripts.splice(i, 1);
+    if (action === "up" && i > 0) [scripts[i - 1], scripts[i]] = [scripts[i], scripts[i - 1]];
+    if (action === "down" && i < scripts.length - 1) [scripts[i + 1], scripts[i]] = [scripts[i], scripts[i + 1]];
+    set(scripts);
+  });
+  form.querySelector("#scripts-file").addEventListener("change", (event) => {
+    // The browser only says the names: Silence checks that they are in sql/ when saving
+    const scripts = get();
+    for (const file of event.target.files) {
+      if (!scripts.includes(file.name)) scripts.push(file.name);
+    }
+    event.target.value = "";
+    set(scripts);
+  });
+  draw();
+}
+
 function settingsForm(form, app) {
   const page = form.closest("#page");
+  scriptsList(form, app);
   let saved = valuesOf(form);
   form.addEventListener("input", () => editing(page, true));
   form.addEventListener("submit", async (event) => {
