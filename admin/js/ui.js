@@ -14,6 +14,13 @@ function describe(method, path, body, data) {
     return ["Database", `Connection tested: ${body?.user ?? ""}@${body?.host ?? ""}:${body?.port ?? ""}${body?.name ? `/${body.name}` : ""}` +
       (data?.ok ? ", connected" : data?.error ? `: ${data.error}` : "") + (data?.databases ? ` (${data.databases.length} databases)` : "")];
   }
+  if (res === "database" && a === "reload") {
+    return ["Database", data?.scripts ? `Created again with ${data.scripts.map((x) => `${x.file} (${x.statements})`).join(", ")}`
+      : "Creating it again failed"];
+  }
+  if (res === "config" && a === "database" && Object.keys(body ?? {}).join() === "scripts") {
+    return ["Database", `Scripts saved in silence.json: ${body.scripts.join(", ") || "none"}`];
+  }
   if (res === "config" && a === "database") return ["Database", `Connection saved in silence.json: ${body?.name ?? ""}`];
   if (res === "config" && a === "auth" && !("table" in (body ?? {}))) {
     const said = [];
@@ -33,7 +40,7 @@ function describe(method, path, body, data) {
   if (res === "users" && b === "password") return ["Users", `Password of user ${a} changed`];
   if (res === "users" && a === "password") return ["Users", `Password of every user changed (${data?.updated ?? "?"})`];
   if (res === "users" && b === "session") {
-    return ["Users", `Session opened as user ${a}${data?.user ? ` (${Object.values(data.user).slice(0, 3).join(", ")})` : ""}`];
+    return ["Users", `Session opened as user ${a}${data?.user ? ` (${Object.values(data.user).filter((v) => v !== null && v !== "" && typeof v !== "object").slice(0, 3).join(", ")})` : ""}`];
   }
   if (res === "endpoints" || res === "tests") {
     const kind = res === "endpoints" ? "Endpoints" : "Tests";
@@ -54,6 +61,21 @@ function describe(method, path, body, data) {
 
 /** When the panel last changed something (so as not to report its own changes as external) */
 export const activity = { last: 0 };
+
+/** Where the panel shows what an action of the admin API changes (for the console's links) */
+function whereIs(path) {
+  const res = path.split("/")[1];
+  if (path.startsWith("/config/auth")) return "#/overview/login";
+  if (path.startsWith("/config/database") || res === "database") return "#/database/connection";
+  if (path.startsWith("/config/server")) return "#/overview/server";
+  if (res === "config") return "#/overview/advanced";
+  if (res === "users") return "#/database/users";
+  if (res === "endpoints") return "#/endpoints";
+  if (res === "tests") return "#/tests";
+  if (res === "panel-data") return "#/tests/composite";
+  if (res === "stats") return "#/stats";
+  return undefined;
+}
 
 /** Calls the admin API and returns its JSON, or throws an Error with its message.
  *  etag: the version of the file that is changed (If-Match), so as not to overwrite
@@ -81,7 +103,7 @@ export async function api(path, method = "GET", body = undefined, etag = undefin
   if (!quiet && (method !== "GET" || !response.ok)) {
     const [source, message] = describe(method, path, body, data);
     logEvent(source, response.ok ? message : `${message}: ${data.message || `error ${response.status}`}`,
-      { ok, details: response.ok ? undefined : data });
+      { ok, details: response.ok ? undefined : data, href: whereIs(path) });
   }
   if (!response.ok) {
     throw new Error(data.message || `Error ${response.status}`);
@@ -126,9 +148,12 @@ export async function attempt(action, success) {
 export function needsConfirm(button, label = "Click again to confirm") {
   if (button.dataset.armed) {
     delete button.dataset.armed;
+    button.innerHTML = button.saOriginal;
+    button.classList.remove("sa-armed");
     return true;
   }
   const original = button.innerHTML;
+  button.saOriginal = original;
   button.dataset.armed = "1";
   button.innerHTML = esc(label);
   button.classList.add("sa-armed");
@@ -216,7 +241,7 @@ export const studentApi = { prefix: "/api", sessionHeader: "Token" };
 /** Sends a request to the project's API, as the current session or the given token, and logs it
  *  in the console. source: who sends it ("Try", "Composite …"); expect(status, data): whether it
  *  went as expected (by default, a status below 400) */
-export async function callApi(prefix, methodName, path, body, { source = "Try", token, expect } = {}) {
+export async function callApi(prefix, methodName, path, body, { source = "Try", token, expect, href } = {}) {
   const options = { method: methodName, headers: {} };
   const current = token === undefined ? session.get()?.token : token;
   if (current) {
@@ -244,7 +269,22 @@ export async function callApi(prefix, methodName, path, body, { source = "Try", 
   }
   const ms = Math.round(performance.now() - started);
   const ok = expect ? expect(status, data) : status > 0 && status < 400;
-  logRequest({ source, method: methodName, path: prefix + path, status, ms, ok, response: data,
+  logRequest({ source, method: methodName, path: prefix + path, status, ms, ok, response: data, href,
     message: status >= 400 && data && typeof data === "object" ? data.message : "" });
   return { status, data, ms };
+}
+
+/** Creates the database again with the scripts of silence.json (database.scripts), after a
+ *  confirmation (a second click). Returns true if it was done. */
+export async function reloadDatabase(button, scripts) {
+  if (!scripts?.length) {
+    toast("Choose the scripts of sql/ that create the database first, in Overview → Advanced", "error");
+    return false;
+  }
+  if (!needsConfirm(button, "Drop and create it again?")) return false;
+  button.disabled = true;
+  const res = await attempt(() => api("/database/reload", "POST"));
+  button.disabled = false;
+  if (res) toast(`Database created again: ${res.scripts.map((x) => x.file).join(", ")}`, "success");
+  return Boolean(res);
 }

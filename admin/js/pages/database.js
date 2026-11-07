@@ -3,7 +3,7 @@
 // (the users table, login and register) and #/database/users (the users: passwords and "act
 // as"; #/database/users/password/<id> to change one). The tabs that need the database are
 // disabled while the connection fails or is being changed; Users, until the users table is linked.
-import { api, esc, attempt, toast, editing } from "../ui.js";
+import { api, esc, attempt, toast, editing, reloadDatabase } from "../ui.js";
 import { dataTable } from "../components/table.js";
 import { usersTab, passwordPage } from "./users.js";
 
@@ -79,7 +79,13 @@ async function connection(body, app, onChange) {
         <button class="uk-button uk-button-primary" type="submit">Test and save</button>
       </div>
     </form>
-    <div id="db-result"></div>`;
+    <div id="db-result"></div>
+    <h3>Create it again</h3>
+    <p class="uk-text-muted sa-small">Drops the database and creates it again with the scripts of <code>sql/</code>
+      ${(db.scripts ?? []).length ? `(${db.scripts.map((x) => `<code>${esc(x)}</code>`).join(", ")}, in this order)` : "(none chosen yet)"},
+      as <code>silence createdb</code>: for example, to run the tests again from the original data. The scripts and their
+      order are set in <a href="#/overview/advanced">Overview → Advanced</a>.</p>
+    <button class="uk-button uk-button-default" type="button" id="db-reload">Reload the database</button>`;
 
   const page = body.closest("#page");
   const form = body.querySelector("#db-form");
@@ -108,6 +114,9 @@ async function connection(body, app, onChange) {
       // Silence is not reachable: the console says so
     }
   }
+  body.querySelector("#db-reload").addEventListener("click", async (event) => {
+    if (await reloadDatabase(event.currentTarget, db.scripts)) await app.refreshStatus();
+  });
   form.addEventListener("input", () => {
     editing(page, true);
     onChange(true);
@@ -194,9 +203,7 @@ async function users(body, app, onLinked) {
 
   body.innerHTML = `
     <form id="auth-form">
-      <fieldset class="sa-block">
-        <legend>Table and columns</legend>
-        <p class="uk-text-muted sa-small">The table with the users of your application: it enables the login and the register,
+        <p class="uk-text-muted">The table with the users of your application: it enables the login and the register,
           sessions, roles (a column of the table) and owners.</p>
         <div class="sa-form">
           <div class="sa-field"><label class="uk-form-label" for="auth-table">Table</label>
@@ -206,7 +213,6 @@ async function users(body, app, onLinked) {
           <div class="sa-field"><label class="uk-form-label" for="auth-role">Role (optional)</label><select class="uk-select" id="auth-role" name="role"></select></div>
           <div class="sa-field"><label class="uk-form-label" for="auth-active">Active (optional)</label><select class="uk-select" id="auth-active" name="active"></select></div>
         </div>
-      </fieldset>
       <div class="sa-toolbar"><button class="uk-button uk-button-primary" type="submit">Save</button></div>
     </form>`;
 

@@ -28,6 +28,7 @@ function store(entries) {
 
 let entries = load();
 let open = false;
+let onlyFailures = false;
 
 function add(entry) {
   entries.push({ time: new Date().toLocaleTimeString(), ...entry });
@@ -43,8 +44,8 @@ export function logRequest(entry) {
 
 /** Something that happened: an action on Silence or a change in the project.
  *  source: "Database", "Users", "Endpoints"...; details: shown when the line is opened. */
-export function logEvent(source, message, { ok = true, details } = {}) {
-  add({ kind: "event", source, message, ok, response: details });
+export function logEvent(source, message, { ok = true, details, href } = {}) {
+  add({ kind: "event", source, message, ok, response: details, href });
 }
 
 function statusClass(e) {
@@ -67,10 +68,11 @@ function line(e) {
        <span class="sa-console__status ${statusClass(e)}">${e.status || "—"}</span>
        ${e.ms !== undefined ? `<span class="uk-text-muted">${e.ms} ms</span>` : ""}
        ${e.message ? `<span class="sa-console__message">${esc(e.message)}</span>` : ""}`;
+  const go = e.href ? `<a class="sa-console__go" href="${esc(e.href)}" title="Go there" uk-icon="icon: arrow-right; ratio: .8"></a>` : "";
   const cls = `sa-console__line ${e.ok ? "" : "sa-console__line--fail"} sa-console__line--${e.kind ?? "request"}`;
   return detail
-    ? `<details class="${cls}"><summary>${summary}</summary><pre class="sa-pre">${json(e.response)}</pre></details>`
-    : `<div class="${cls}"><div class="sa-console__summary">${summary}</div></div>`;
+    ? `<details class="${cls}"><summary>${summary}${go}</summary><pre class="sa-pre">${json(e.response)}</pre></details>`
+    : `<div class="${cls}"><div class="sa-console__summary">${summary}${go}</div></div>`;
 }
 
 function draw() {
@@ -87,14 +89,20 @@ function draw() {
       </button>
       ${!open && entries.length ? `<span class="sa-console__last">${lastText(entries[entries.length - 1])}</span>` : ""}
       <span class="sa-toolbar__spacer"></span>
-      ${open ? `<button type="button" class="uk-button uk-button-default uk-button-small" id="console-clear">Clear</button>` : ""}
+      ${open ? `<label class="sa-console__filter"><input class="uk-checkbox" type="checkbox" id="console-failures"
+        ${onlyFailures ? "checked" : ""}> Only failures</label>
+        <button type="button" class="uk-button uk-button-default uk-button-small" id="console-clear">Clear</button>` : ""}
     </div>
     ${open ? `<div class="sa-console__body">
-      ${entries.length ? [...entries].reverse().map(line).join("")
-        : `<p class="uk-text-muted sa-small">Nothing yet: the activity of the panel will appear here.</p>`}
+      ${shown().length ? [...shown()].reverse().map(line).join("")
+        : `<p class="uk-text-muted sa-small">${entries.length ? "No failures." : "Nothing yet: the activity of the panel will appear here."}</p>`}
     </div>` : ""}`;
   root.querySelector("#console-toggle").addEventListener("click", () => {
     open = !open;
+    draw();
+  });
+  root.querySelector("#console-failures")?.addEventListener("change", (event) => {
+    onlyFailures = event.target.checked;
     draw();
   });
   root.querySelector("#console-clear")?.addEventListener("click", () => {
@@ -103,6 +111,8 @@ function draw() {
     draw();
   });
 }
+
+const shown = () => (onlyFailures ? entries.filter((e) => !e.ok) : entries);
 
 /** The last entry, in one line, for the closed console */
 function lastText(e) {

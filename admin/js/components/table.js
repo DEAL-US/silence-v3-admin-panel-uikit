@@ -16,7 +16,7 @@ import { esc } from "../ui.js";
  * }]
  * options.rows: the data
  * options.sort: {key, dir: "asc" | "desc"} initial order
- * options.empty: text when there are no rows
+ * options.empty: text when there are no rows (or options.emptyHtml: HTML, e.g., with the next step)
  * options.onAction: (action, row, element) => {}  for the elements with data-action in the cells
  * options.after: (row) => html | ""   an extra row under a row (e.g., details)
  */
@@ -102,7 +102,8 @@ export function dataTable(container, options) {
   function drawBody() {
     const visible = visibleRows();
     if (!visible.length) {
-      tbody.innerHTML = `<tr><td colspan="${columns.length}" class="uk-text-muted">${esc(rows.length ? "No rows match the filters." : options.empty ?? "No rows.")}</td></tr>`;
+      const empty = rows.length ? esc("No rows match the filters.") : options.emptyHtml ?? esc(options.empty ?? "No rows.");
+      tbody.innerHTML = `<tr><td colspan="${columns.length}" class="uk-text-muted sa-table__empty">${empty}</td></tr>`;
     } else {
       tbody.innerHTML = visible.map((row) => {
         const i = rows.indexOf(row);
@@ -148,5 +149,7 @@ export function dataTable(container, options) {
       drawBody();
     },
     rows: () => rows,
+    /** The rows that the filters let through, in the order shown */
+    visible: () => visibleRows(),
   };
 }

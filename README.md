@@ -34,9 +34,9 @@ needs (`api`); Silence warns when they do not match.
   (testing and saving the connection, linking the users table, saving an endpoint, opening a
   session as a user…) and the changes in the project (database connected or lost, files
   changed outside the panel, errors), with the errors highlighted; kept in `sessionStorage`.
-- Overview: the steps to set up the project, its problems and the settings of `silence.json`:
-  login, register and how the passwords are stored in sight, and the rest under "Advanced
-  settings" (server, sessions, JS API, debug); only the values that change are saved.
+- Overview, in tabs: getting started (the steps, the problems, the app) and the settings of
+  `silence.json` (login and passwords, server, advanced: database scripts, sessions, JS API,
+  debug); only the values that change are saved.
 - Database, in tabs: connection, tables and views, users table (its columns) and users
   (password of each one, act as);
   the tabs that need the database are disabled while the connection fails or is being changed,
@@ -49,7 +49,12 @@ needs (`api`); Silence warns when they do not match.
   (the same with the tests).
 - Tests: Silence generates and keeps the unit tests, but does not run them. The panel runs
   them against the student's API (in the order GET, POST, PUT, DELETE), so they change the
-  database. Composite tests (sequences of unit tests, by name) belong only to the panel: it
+  database: "Reload the database" (also in Database) creates it again with the scripts of
+  `database.scripts`. The unit tests are in one grid (with a Source column).
+- Trying an endpoint: the user is chosen there (a session without password), and a GET of the
+  same table proposes real values for the params and the body.
+- Empty sections say the next step (e.g., generate the endpoints); the console can show only
+  the failures, and each line links to its endpoint, test or section. Composite tests (sequences of unit tests, by name) belong only to the panel: it
   saves them through the admin API (`/panel-data/composite_tests`, that is, the project's
   `admin/data/composite_tests.json`; versioning it is the student's decision).
 

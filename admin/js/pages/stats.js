@@ -12,6 +12,13 @@ const GROUPS = {
 
 let timer = null;
 
+// What to do to see something in each tab
+const EMPTY = {
+  api: `No requests yet: <a href="#/endpoints">try an endpoint</a>, <a href="#/tests">run the tests</a> or use your web app.`,
+  web: `No requests yet: open <a href="/" target="_blank">your web app</a>.`,
+  silence: "No requests yet.",
+};
+
 export function crumbs(params) {
   return [{ label: "Statistics", href: "#/stats" }, { label: (GROUPS[params[0]] ?? GROUPS.api)[0] }];
 }
@@ -70,7 +77,7 @@ export async function render(main, app, params) {
     <div id="table"></div><div id="api-unmatched"></div>`;
 
   const table = dataTable(main.querySelector("#table"), tab === "web" ? {
-    rows: [], sort: { key: "requests", dir: "desc" }, empty: "No requests yet.",
+    rows: [], sort: { key: "requests", dir: "desc" }, emptyHtml: EMPTY[tab],
     columns: [
       { key: "path", label: "File", render: (f) => `<span class="sa-route">${esc(f.path)}</span>` },
       { key: "kind", label: "Kind", filter: "select" },
@@ -79,7 +86,7 @@ export async function render(main, app, params) {
         render: (f) => (f.notFound ? `<span class="sa-fail">${f.notFound}</span>` : "0") },
       { key: "bytes", label: "Sent", filter: false, render: (f) => bytes(f.bytes) },
     ],
-  } : { rows: [], sort: { key: "requests", dir: "desc" }, empty: "No requests yet.", columns: endpointColumns() });
+  } : { rows: [], sort: { key: "requests", dir: "desc" }, emptyHtml: EMPTY[tab], columns: endpointColumns() });
 
   async function draw() {
     let s;

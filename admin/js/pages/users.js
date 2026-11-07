@@ -46,7 +46,7 @@ export async function usersTab(main, app) {
       if (action !== "act") return;
       const s = await attempt(() => api(`/users/${encodeURIComponent(u.id)}/session`, "POST"));
       if (s) {
-        session.set({ token: s.sessionToken, label: u.identifier });
+        session.set({ token: s.sessionToken, label: u.identifier, id: u.id });
         toast(`Acting as ${u.identifier}`, "success");
       }
     },

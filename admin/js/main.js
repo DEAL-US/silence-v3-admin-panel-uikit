@@ -12,6 +12,7 @@ import * as stats from "./pages/stats.js";
 
 const routes = {
   "": overview,
+  overview,
   database,
   endpoints,
   tests,
@@ -138,8 +139,9 @@ async function render() {
   const page = routes[name] ?? overview;
   for (const link of document.querySelectorAll(".sa-nav a")) {
     const target = link.getAttribute("href").replace(/^#\/?/, "");
-    link.parentElement.classList.toggle("uk-active", target === name);
-    if (target === name) {
+    const current = name === "overview" ? "" : name;
+    link.parentElement.classList.toggle("uk-active", target === current);
+    if (target === current) {
       link.setAttribute("aria-current", "page");
     } else {
       link.removeAttribute("aria-current");

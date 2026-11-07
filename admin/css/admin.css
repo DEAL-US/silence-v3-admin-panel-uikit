@@ -790,3 +790,28 @@ body {
   font-weight: 500;
   cursor: pointer;
 }
+
+.sa-console__go {
+  margin-left: auto;
+  color: #8fd1ff;
+}
+
+.sa-console__filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.sa-console__filter .uk-checkbox {
+  background-color: transparent;
+  border-color: #8a96a6;
+}
+
+.sa-table__empty .uk-button {
+  margin-left: 8px;
+}
+
+#settings h3 {
+  margin-top: 28px;
+}
