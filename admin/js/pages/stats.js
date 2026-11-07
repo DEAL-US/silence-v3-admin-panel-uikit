@@ -12,8 +12,8 @@ const GROUPS = {
 
 let timer = null;
 
-export function crumbs() {
-  return [{ label: "Statistics" }];
+export function crumbs(params) {
+  return [{ label: "Statistics", href: "#/stats" }, { label: (GROUPS[params[0]] ?? GROUPS.api)[0] }];
 }
 
 function statuses(byStatus) {
@@ -51,7 +51,8 @@ function endpointColumns() {
   ];
 }
 
-export async function render(main) {
+export async function render(main, app, params) {
+  const tab = GROUPS[params[0]] ? params[0] : "api";
   main.innerHTML = `
     <h1>Statistics</h1>
     <div class="sa-toolbar">
@@ -61,27 +62,24 @@ export async function render(main) {
       <button class="uk-button uk-button-default" type="button" id="reset">Reset</button>
     </div>
     <div class="sa-grid" id="totals"></div>
-    <section class="sa-section"><h2>${GROUPS.api[0]}</h2><div id="api"></div><div id="api-unmatched"></div></section>
-    <section class="sa-section"><h2>${GROUPS.web[0]}</h2><div id="web"></div></section>
-    <section class="sa-section"><h2>${GROUPS.silence[0]}</h2><div id="silence"></div></section>`;
+    <ul class="uk-tab sa-tabs">
+      ${Object.entries(GROUPS).map(([key, [label]]) =>
+        `<li class="${key === tab ? "uk-active" : ""}"><a href="#/stats/${key}">${label} (<span id="count-${key}">…</span>)</a></li>`).join("")}
+    </ul>
+    <p class="uk-text-muted sa-small">${GROUPS[tab][1]}.</p>
+    <div id="table"></div><div id="api-unmatched"></div>`;
 
-  const tables = {
-    api: dataTable(main.querySelector("#api"), {
-      rows: [], sort: { key: "requests", dir: "desc" }, empty: "No requests yet.", columns: endpointColumns() }),
-    silence: dataTable(main.querySelector("#silence"), {
-      rows: [], sort: { key: "requests", dir: "desc" }, empty: "No requests yet.", columns: endpointColumns() }),
-    web: dataTable(main.querySelector("#web"), {
-      rows: [], sort: { key: "requests", dir: "desc" }, empty: "No requests yet.",
-      columns: [
-        { key: "path", label: "File", render: (f) => `<span class="sa-route">${esc(f.path)}</span>` },
-        { key: "kind", label: "Kind", filter: "select" },
-        { key: "requests", label: "Requests", filter: false },
-        { key: "notFound", label: "Not found", filter: false,
-          render: (f) => (f.notFound ? `<span class="sa-fail">${f.notFound}</span>` : "0") },
-        { key: "bytes", label: "Sent", filter: false, render: (f) => bytes(f.bytes) },
-      ],
-    }),
-  };
+  const table = dataTable(main.querySelector("#table"), tab === "web" ? {
+    rows: [], sort: { key: "requests", dir: "desc" }, empty: "No requests yet.",
+    columns: [
+      { key: "path", label: "File", render: (f) => `<span class="sa-route">${esc(f.path)}</span>` },
+      { key: "kind", label: "Kind", filter: "select" },
+      { key: "requests", label: "Requests", filter: false },
+      { key: "notFound", label: "Not found", filter: false,
+        render: (f) => (f.notFound ? `<span class="sa-fail">${f.notFound}</span>` : "0") },
+      { key: "bytes", label: "Sent", filter: false, render: (f) => bytes(f.bytes) },
+    ],
+  } : { rows: [], sort: { key: "requests", dir: "desc" }, empty: "No requests yet.", columns: endpointColumns() });
 
   async function draw() {
     let s;
@@ -98,10 +96,9 @@ export async function render(main) {
       card(GROUPS.web[0], GROUPS.web[1], s.web.requests,
         `${s.web.notFound ? `<span class="sa-fail">${s.web.notFound} not found</span>` : "0 not found"} · ${bytes(s.web.bytes)}${kinds ? ` · ${kinds}` : ""}`) +
       card(GROUPS.silence[0], GROUPS.silence[1], s.silence.requests, apiDetail(s.silence));
-    tables.api.update(s.api.endpoints);
-    tables.silence.update(s.silence.endpoints);
-    tables.web.update(s.web.files);
-    const unmatched = Object.entries(s.api.unmatched);
+    for (const g of Object.keys(GROUPS)) main.querySelector(`#count-${g}`).textContent = s[g].requests;
+    table.update(tab === "web" ? s.web.files : s[tab].endpoints);
+    const unmatched = tab === "api" ? Object.entries(s.api.unmatched) : [];
     main.querySelector("#api-unmatched").innerHTML = unmatched.length ? `
       <div class="uk-alert uk-alert-warning sa-small"><strong>Requests to routes without an endpoint (404)</strong>
         <ul class="uk-margin-remove">${unmatched.map(([k, n]) => `<li><span class="sa-route">${esc(k)}</span> ×${n}</li>`).join("")}</ul>

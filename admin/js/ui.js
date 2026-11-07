@@ -1,14 +1,57 @@
 // Helpers shared by the pages of the admin panel. UIkit (global) gives the notifications.
 /* global UIkit */
-import { logRequest } from "./components/console.js";
+import { logRequest, logEvent } from "./components/console.js";
 
 /** The admin API of Silence that this panel uses (see panel.json). */
 export const API = "/_silence/v1";
 
+/** What an action on Silence means, for the console: [source, message] */
+function describe(method, path, body, data) {
+  const parts = path.split("?")[0].split("/").filter(Boolean).map(decodeURIComponent);
+  const [res, a, b, c] = parts;
+  const target = a && b ? `${a}/${b}` : a;
+  if (res === "database" && a === "test") {
+    return ["Database", `Connection tested: ${body?.user ?? ""}@${body?.host ?? ""}:${body?.port ?? ""}${body?.name ? `/${body.name}` : ""}` +
+      (data?.ok ? ", connected" : data?.error ? `: ${data.error}` : "") + (data?.databases ? ` (${data.databases.length} databases)` : "")];
+  }
+  if (res === "config" && a === "database") return ["Database", `Connection saved in silence.json: ${body?.name ?? ""}`];
+  if (res === "config" && a === "auth") {
+    return ["Users", body?.table
+      ? `Users table linked: ${body.table} (identifier ${body.identifier}, password ${body.password}${body.role ? `, role ${body.role}` : ""}); login ${body.login ? "on" : "off"}, register ${body.register ? "on" : "off"}`
+      : "Users table unlinked"];
+  }
+  if (res === "config") return ["Settings", `${a} saved in silence.json`];
+  if (res === "users" && b === "password") return ["Users", `Password of user ${a} changed`];
+  if (res === "users" && a === "password") return ["Users", `Password of every user changed (${data?.updated ?? "?"})`];
+  if (res === "users" && b === "session") {
+    return ["Users", `Session opened as user ${a}${data?.user ? ` (${Object.values(data.user).slice(0, 3).join(", ")})` : ""}`];
+  }
+  if (res === "endpoints" || res === "tests") {
+    const kind = res === "endpoints" ? "Endpoints" : "Tests";
+    if (a === "generate") {
+      return [kind, res === "endpoints"
+        ? `Generated: ${data?.tables?.reduce((n, t) => n + t.generated.length, 0) ?? "?"} endpoints of ${data?.tables?.length ?? "?"} tables and views`
+        : `Generated: ${data?.tables?.reduce((n, t) => n + t.tests, 0) ?? "?"} tests`];
+    }
+    if (a === "export") return [kind, `Exported: ${(data?.files ?? []).join(", ")}`];
+    if (c === "customize") return [kind, `${target} moved to custom${data ? ` (${data.file}/${data.name})` : ""}`];
+    if (method === "PUT") return [kind, `${target} saved`];
+    if (method === "DELETE") return [kind, `${target} deleted`];
+  }
+  if (res === "panel-data") return ["Panel", `admin/data/${a}.json saved`];
+  if (res === "stats" && method === "DELETE") return ["Statistics", "Reset"];
+  return ["Silence", `${method} ${path}`];
+}
+
+/** When the panel last changed something (so as not to report its own changes as external) */
+export const activity = { last: 0 };
+
 /** Calls the admin API and returns its JSON, or throws an Error with its message.
  *  etag: the version of the file that is changed (If-Match), so as not to overwrite
- *  changes made meanwhile in another place (412). */
-export async function api(path, method = "GET", body = undefined, etag = undefined) {
+ *  changes made meanwhile in another place (412). The actions (not the reads) and the
+ *  errors go to the console, unless quiet. */
+export async function api(path, method = "GET", body = undefined, etag = undefined, { quiet = false } = {}) {
+  if (method !== "GET") activity.last = Date.now();
   const options = { method, headers: {} };
   if (etag !== undefined) {
     options.headers["If-Match"] = etag;
@@ -17,8 +60,20 @@ export async function api(path, method = "GET", body = undefined, etag = undefin
     options.headers["Content-Type"] = "application/json";
     options.body = JSON.stringify(body);
   }
-  const response = await fetch(API + path, options);
+  let response;
+  try {
+    response = await fetch(API + path, options);
+  } catch (error) {
+    if (!quiet) logEvent("Silence", `Cannot reach Silence (${method} ${path}): is 'silence run' running?`, { ok: false });
+    throw new Error("Cannot reach Silence: is 'silence run' running?");
+  }
   const data = await response.json().catch(() => ({}));
+  const ok = response.ok && !(path.startsWith("/database/test") && !data.ok);
+  if (!quiet && (method !== "GET" || !response.ok)) {
+    const [source, message] = describe(method, path, body, data);
+    logEvent(source, response.ok ? message : `${message}: ${data.message || `error ${response.status}`}`,
+      { ok, details: response.ok ? undefined : data });
+  }
   if (!response.ok) {
     throw new Error(data.message || `Error ${response.status}`);
   }
@@ -141,6 +196,7 @@ export const session = {
     } catch {
       // Storage blocked: the session is not remembered
     }
+    logEvent("Users", value ? `Trying the API as ${value.label}` : "Trying the API without a session");
     document.dispatchEvent(new CustomEvent("sa-session"));
   },
 };

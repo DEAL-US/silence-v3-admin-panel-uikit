@@ -1,10 +1,14 @@
-// The console at the bottom of the panel: the requests that the panel sends to the student's
-// API (trying an endpoint, the steps of a composite test) and the results of the tests, with
-// the errors highlighted. Kept in sessionStorage while the tab is open.
+// The console at the bottom of the panel: all its activity, with the errors highlighted.
+//   - requests to the student's API (trying an endpoint, unit and composite tests);
+//   - actions on Silence (connecting to the database, linking the users table, saving an
+//     endpoint, opening a session as a user...);
+//   - changes in the state of the project (database connected or lost, files reloaded...).
+// Kept in sessionStorage while the tab is open. The student also sees the requests to the API
+// in the console where 'silence run' runs.
 import { esc, json } from "../ui.js";
 
 const KEY = "silence-admin-console";
-const MAX = 200;
+const MAX = 300;
 
 function load() {
   try {
@@ -25,15 +29,22 @@ function store(entries) {
 let entries = load();
 let open = false;
 
-/**
- * Adds an entry: {source, method, path, status, ms, ok, message, response}.
- * source: where it comes from ("Try", "Composite flow", "Test")
- */
-export function logRequest(entry) {
+function add(entry) {
   entries.push({ time: new Date().toLocaleTimeString(), ...entry });
   entries = entries.slice(-MAX);
   store(entries);
   draw();
+}
+
+/** A request to the student's API: {source, method, path, status, ms, ok, message, response}. */
+export function logRequest(entry) {
+  add({ kind: "request", ...entry });
+}
+
+/** Something that happened: an action on Silence or a change in the project.
+ *  source: "Database", "Users", "Endpoints"...; details: shown when the line is opened. */
+export function logEvent(source, message, { ok = true, details } = {}) {
+  add({ kind: "event", source, message, ok, response: details });
 }
 
 function statusClass(e) {
@@ -41,6 +52,25 @@ function statusClass(e) {
   if (e.status >= 500) return "sa-console__status--error";
   if (e.status >= 400) return e.ok ? "sa-console__status--expected" : "sa-console__status--warn";
   return "sa-console__status--ok";
+}
+
+function line(e) {
+  const detail = e.response !== undefined && e.response !== null && e.response !== "";
+  const summary = e.kind === "event"
+    ? `<span class="sa-console__time">${esc(e.time)}</span>
+       <span class="sa-console__source">${esc(e.source ?? "")}</span>
+       <span class="sa-console__event">${esc(e.message)}</span>`
+    : `<span class="sa-console__time">${esc(e.time)}</span>
+       <span class="sa-console__source">${esc(e.source ?? "")}</span>
+       <span class="sa-method sa-method--${esc(e.method)}">${esc(e.method)}</span>
+       <span class="sa-route">${esc(e.path)}</span>
+       <span class="sa-console__status ${statusClass(e)}">${e.status || "—"}</span>
+       ${e.ms !== undefined ? `<span class="uk-text-muted">${e.ms} ms</span>` : ""}
+       ${e.message ? `<span class="sa-console__message">${esc(e.message)}</span>` : ""}`;
+  const cls = `sa-console__line ${e.ok ? "" : "sa-console__line--fail"} sa-console__line--${e.kind ?? "request"}`;
+  return detail
+    ? `<details class="${cls}"><summary>${summary}</summary><pre class="sa-pre">${json(e.response)}</pre></details>`
+    : `<div class="${cls}"><div class="sa-console__summary">${summary}</div></div>`;
 }
 
 function draw() {
@@ -55,23 +85,13 @@ function draw() {
         Console <span class="uk-badge">${entries.length}</span>
         ${errors ? `<span class="uk-badge sa-console__errors">${errors} failed</span>` : ""}
       </button>
+      ${!open && entries.length ? `<span class="sa-console__last">${lastText(entries[entries.length - 1])}</span>` : ""}
       <span class="sa-toolbar__spacer"></span>
       ${open ? `<button type="button" class="uk-button uk-button-default uk-button-small" id="console-clear">Clear</button>` : ""}
     </div>
     ${open ? `<div class="sa-console__body">
-      ${entries.length ? [...entries].reverse().map((e, i) => `
-        <details class="sa-console__line ${e.ok ? "" : "sa-console__line--fail"}">
-          <summary>
-            <span class="sa-console__time">${esc(e.time)}</span>
-            <span class="sa-console__source">${esc(e.source ?? "")}</span>
-            <span class="sa-method sa-method--${esc(e.method)}">${esc(e.method)}</span>
-            <span class="sa-route">${esc(e.path)}</span>
-            <span class="sa-console__status ${statusClass(e)}">${e.status || "—"}</span>
-            ${e.ms !== undefined ? `<span class="uk-text-muted">${e.ms} ms</span>` : ""}
-            ${e.message ? `<span class="sa-console__message">${esc(e.message)}</span>` : ""}
-          </summary>
-          <pre class="sa-pre">${json(e.response ?? null)}</pre>
-        </details>`).join("") : `<p class="uk-text-muted sa-small">No requests yet: try an endpoint or run a composite test.</p>`}
+      ${entries.length ? [...entries].reverse().map(line).join("")
+        : `<p class="uk-text-muted sa-small">Nothing yet: the activity of the panel will appear here.</p>`}
     </div>` : ""}`;
   root.querySelector("#console-toggle").addEventListener("click", () => {
     open = !open;
@@ -82,6 +102,12 @@ function draw() {
     store(entries);
     draw();
   });
+}
+
+/** The last entry, in one line, for the closed console */
+function lastText(e) {
+  const text = e.kind === "event" ? `${e.source}: ${e.message}` : `${e.method} ${e.path} ${e.status || ""}`;
+  return `<span class="${e.ok ? "" : "sa-console__message"}">${esc(text)}</span>`;
 }
 
 export function initConsole() {

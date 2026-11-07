@@ -22,7 +22,7 @@ export function parent(params) {
 
 export async function render(main, app, params) {
   if (!app.status.auth.linked) {
-    main.innerHTML = `<h1>Users</h1><div class="uk-alert uk-alert-warning">Link the users table first, in <a href="#/database">Database</a>.</div>`;
+    main.innerHTML = `<h1>Users</h1><div class="uk-alert uk-alert-warning">Link the users table first, in <a href="#/database/users">Database</a>.</div>`;
     return;
   }
   const [view, id] = params;

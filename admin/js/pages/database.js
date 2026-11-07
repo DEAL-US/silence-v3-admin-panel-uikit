@@ -1,87 +1,169 @@
-// Database: the connection (tested before saving it) and the users table.
-import { api, esc, attempt, toast } from "../ui.js";
+// Database, in three tabs: #/database/connection (tested before saving it; testing it also
+// lists the databases), #/database/tables (the tables and views, with their rows) and
+// #/database/users (the users table, login and register).
+import { api, esc, attempt, toast, editing } from "../ui.js";
+import { dataTable } from "../components/table.js";
 
-export function crumbs() {
-  return [{ label: "Database" }];
+const TABS = { connection: "Connection", tables: "Tables and views", users: "Users table" };
+
+export function crumbs(params) {
+  return [{ label: "Database", href: "#/database" }, { label: TABS[params[0]] ?? TABS.connection }];
 }
 
-export async function render(main, app) {
-  const config = (await api("/config")).config;
-  const db = config.database;
-
+export async function render(main, app, params) {
+  const tab = TABS[params[0]] ? params[0] : "connection";
+  const dbOk = !app.status.database.error;
   main.innerHTML = `
     <h1>Database</h1>
-    <section class="sa-section">
-      <h2>Connection</h2>
-      <p class="uk-text-muted">Silence uses an existing database: create it and load its data first
-        (for example, with the scripts of the project's <code>sql/</code> folder).</p>
-      <form class="sa-form" id="db-form">
-        <div class="sa-field"><label class="uk-form-label" for="db-host">Host</label><input class="uk-input" id="db-host" name="host" value="${esc(db.host)}" required></div>
-        <div class="sa-field"><label class="uk-form-label" for="db-port">Port</label><input class="uk-input" id="db-port" name="port" type="number" value="${esc(db.port)}" required></div>
-        <div class="sa-field"><label class="uk-form-label" for="db-user">User</label><input class="uk-input" id="db-user" name="user" value="${esc(db.user)}" required></div>
-        <div class="sa-field"><label class="uk-form-label" for="db-password">Password</label><input class="uk-input" id="db-password" name="password" type="password" value="${esc(db.password)}"></div>
-        <div class="sa-field"><label class="uk-form-label" for="db-name">Database</label>
-          <select class="uk-select" id="db-name" name="name"><option value="${esc(db.name)}">${esc(db.name || "(choose one)")}</option></select></div>
-        <div class="sa-toolbar">
-          <button class="uk-button uk-button-default" type="button" id="db-list">Load the databases</button>
-          <button class="uk-button uk-button-primary" type="submit">Test and save</button>
-        </div>
-      </form>
-      <p id="db-result"></p>
-    </section>
-
-    <section class="sa-section" id="auth-section">
-      <h2>Users table</h2>
-      <p class="uk-text-muted">The table with the users of your application: it enables <code>POST ${esc(app.status.apiPrefix)}/login</code>
-        and <code>/register</code>, sessions, roles (a column of the table) and owners.</p>
-      <div id="auth-body"></div>
-    </section>`;
-
-  const form = main.querySelector("#db-form");
-  const values = () => Object.fromEntries(new FormData(form));
-
-  main.querySelector("#db-list").addEventListener("click", async () => {
-    const res = await attempt(() => api("/database/list", "POST", values()));
-    if (!res) return;
-    if (!res.ok) {
-      toast(res.error, "error");
-      return;
-    }
-    const select = main.querySelector("#db-name");
-    const selected = select.value;
-    select.innerHTML = `<option value="">(choose one)</option>` + res.databases.map((d) =>
-      `<option ${d === selected ? "selected" : ""}>${esc(d)}</option>`).join("");
-    toast(`${res.databases.length} databases`, "success");
-  });
-
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const v = values();
-    v.port = Number(v.port);
-    const res = await attempt(() => api("/config/database", "PATCH", v), "Connected and saved in silence.json");
-    if (res) {
-      await app.refreshStatus();
-      renderAuth(main, app);
-    }
-  });
-
-  renderAuth(main, app);
-}
-
-async function renderAuth(main, app) {
-  const body = main.querySelector("#auth-body");
-  if (app.status.database.error) {
-    body.innerHTML = `<div class="uk-alert uk-alert-warning">Connect to the database first.</div>`;
+    <ul class="uk-tab sa-tabs">
+      ${Object.entries(TABS).map(([key, label]) =>
+        `<li class="${key === tab ? "uk-active" : ""}"><a href="#/database/${key}">${label}</a></li>`).join("")}
+    </ul>
+    <div id="tab"></div>`;
+  const body = main.querySelector("#tab");
+  if (tab === "connection") return connection(body, app);
+  if (!dbOk) {
+    body.innerHTML = `<div class="uk-alert uk-alert-warning">Connect to the database first, in
+      <a href="#/database/connection">Connection</a>.</div>`;
     return;
   }
-  const auth = (await api("/config")).config.auth;
-  const schema = await api("/schema");
+  if (tab === "tables") return tables(body, app);
+  return users(body, app);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Connection
+///////////////////////////////////////////////////////////////////////////////
+
+async function connection(body, app) {
+  const db = (await api("/config")).config.database;
+  body.innerHTML = `
+    <p class="uk-text-muted">Silence uses an existing database: create it and load its data first
+      (for example, with the scripts of the project's <code>sql/</code> folder).</p>
+    <form class="sa-form" id="db-form">
+      <div class="sa-field"><label class="uk-form-label" for="db-host">Host</label><input class="uk-input" id="db-host" name="host" value="${esc(db.host)}" required></div>
+      <div class="sa-field"><label class="uk-form-label" for="db-port">Port</label><input class="uk-input" id="db-port" name="port" type="number" value="${esc(db.port)}" required></div>
+      <div class="sa-field"><label class="uk-form-label" for="db-user">User</label><input class="uk-input" id="db-user" name="user" value="${esc(db.user)}" required></div>
+      <div class="sa-field"><label class="uk-form-label" for="db-password">Password</label><input class="uk-input" id="db-password" name="password" type="password" value="${esc(db.password)}"></div>
+      <div class="sa-field"><label class="uk-form-label" for="db-name">Database</label>
+        <select class="uk-select" id="db-name" name="name"><option value="${esc(db.name)}">${esc(db.name || "(test the connection to list them)")}</option></select></div>
+      <div class="sa-toolbar">
+        <button class="uk-button uk-button-primary" type="submit">Test and save</button>
+      </div>
+    </form>
+    <div id="db-result"></div>`;
+
+  const page = body.closest("#page");
+  const form = body.querySelector("#db-form");
+  const select = body.querySelector("#db-name");
+  const result = body.querySelector("#db-result");
+  const values = () => {
+    const v = Object.fromEntries(new FormData(form));
+    v.port = Number(v.port);
+    return v;
+  };
+  const fill = (databases) => {
+    const selected = select.value;
+    select.innerHTML = `<option value="">(choose one)</option>` + databases.map((d) =>
+      `<option ${d === selected ? "selected" : ""}>${esc(d)}</option>`).join("");
+  };
+  const show = (ok, text) => {
+    result.innerHTML = `<div class="uk-alert uk-alert-${ok ? "success" : "warning"}">${text}</div>`;
+  };
+
+  // The list of databases, without saving anything (and without going to the console)
+  if (db.host && db.user) {
+    try {
+      const res = await api("/database/test", "POST", values(), undefined, { quiet: true });
+      if (res.databases.length) fill(res.databases);
+    } catch {
+      // Silence is not reachable: the console says so
+    }
+  }
+  form.addEventListener("input", () => editing(page, true));
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const res = await attempt(() => api("/database/test", "POST", values()));
+    if (!res) return;
+    if (res.databases.length) fill(res.databases);
+    if (!res.databases.length) {
+      show(false, esc(res.error));
+      return;
+    }
+    if (!values().name) {
+      show(false, `Connected: now choose one of the ${res.databases.length} databases and save.`);
+      return;
+    }
+    if (!res.ok) {
+      show(false, esc(res.error));
+      return;
+    }
+    if (await attempt(() => api("/config/database", "PATCH", values()), "Connected and saved in silence.json")) {
+      show(true, `Connected to <code>${esc(values().name)}</code> and saved in <code>silence.json</code>.`);
+      editing(page, false);
+      await app.refreshStatus();
+    }
+  });
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Tables and views
+///////////////////////////////////////////////////////////////////////////////
+
+async function tables(body, app) {
+  const [schema, eps] = await Promise.all([attempt(() => api("/schema")), attempt(() => api("/endpoints"))]);
+  if (!schema || !eps) return;
+  const usersTable = app.status.auth.linked ? app.status.auth.table.toLowerCase() : null;
+  const same = (a, b) => a.toLowerCase() === b.toLowerCase();
+  const rows = schema.relations.map((r) => ({
+    ...r,
+    kind: r.view ? "view" : "table",
+    columnCount: r.columns.length,
+    references: [...new Set(r.fks.map((f) => f.refTable))],
+    referencedBy: schema.relations.filter((x) => x.fks.some((f) => same(f.refTable, r.name))).map((x) => x.name),
+    endpoints: eps.endpoints.filter((e) => same(e.table, r.name)).length,
+  }));
+  const tableCount = rows.filter((r) => !r.view).length;
+
+  body.innerHTML = `
+    <p class="uk-text-muted"><code>${esc(schema.database)}</code>: ${tableCount} tables and ${rows.length - tableCount} views.</p>
+    <div id="grid"></div>`;
+  const list = (names) => (names.length ? names.map((n) => `<code>${esc(n)}</code>`).join(" ") : `<span class="uk-text-muted">—</span>`);
+  dataTable(body.querySelector("#grid"), {
+    rows, sort: { key: "name", dir: "asc" }, empty: "The database has no tables.",
+    columns: [
+      { key: "name", label: "Name", render: (r) => `<strong>${esc(r.name)}</strong>` +
+          (r.name.toLowerCase() === usersTable ? ` <span class="uk-label sa-label-users" title="The users table">users</span>` : "") },
+      { key: "kind", label: "Kind", filter: "select" },
+      { key: "rows", label: "Rows", filter: false,
+        render: (r) => (r.rows === null ? `<span class="uk-text-danger" title="It cannot be counted">?</span>` : r.rows) },
+      { key: "columnCount", label: "Columns", filter: false },
+      { key: "pk", label: "Primary key", value: (r) => r.pk.join(", "), render: (r) => list(r.pk) },
+      { key: "references", label: "References", value: (r) => r.references.join(" "), render: (r) => list(r.references) },
+      { key: "referencedBy", label: "Referenced by", value: (r) => r.referencedBy.join(" "), render: (r) => list(r.referencedBy) },
+      { key: "endpoints", label: "Endpoints", filter: false,
+        render: (r) => (r.endpoints ? `<a href="#/endpoints">${r.endpoints}</a>` : `<span class="uk-text-muted">0</span>`) },
+    ],
+  });
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Users table: login and register
+///////////////////////////////////////////////////////////////////////////////
+
+async function users(body, app) {
+  const [config, schema] = await Promise.all([attempt(() => api("/config")), attempt(() => api("/schema"))]);
+  if (!config || !schema) return;
+  const auth = config.config.auth;
   const tables = schema.relations.filter((r) => !r.view);
+  const prefix = app.status.apiPrefix;
 
   const options = (cols, selected, empty) => `<option value="">${empty}</option>` +
     cols.map((c) => `<option ${c === selected ? "selected" : ""}>${esc(c)}</option>`).join("");
 
   body.innerHTML = `
+    <p class="uk-text-muted">The table with the users of your application: it enables the login and the register,
+      sessions, roles (a column of the table) and owners.</p>
     <form class="sa-form" id="auth-form">
       <div class="sa-field"><label class="uk-form-label" for="auth-table">Table</label>
         <select class="uk-select" id="auth-table" name="table">${options(tables.map((t) => t.name), auth.table, "(not linked)")}</select></div>
@@ -96,11 +178,14 @@ async function renderAuth(main, app) {
         </select></div>
       <div class="sa-field"><label class="uk-form-label" for="auth-default-role">Role of new users (register)</label>
         <input class="uk-input" id="auth-default-role" name="default_role" value="${esc(auth.default_role)}"></div>
-      <div class="sa-field"><label><input class="uk-checkbox" type="checkbox" name="login" ${auth.login ? "checked" : ""}> Login</label>
-        <label><input class="uk-checkbox" type="checkbox" name="register" ${auth.register ? "checked" : ""}> Register</label></div>
+      <div class="sa-field sa-checks">
+        <label><input class="uk-checkbox" type="checkbox" name="login" ${auth.login ? "checked" : ""}> Login (<code>POST ${esc(prefix)}/login</code>)</label>
+        <label><input class="uk-checkbox" type="checkbox" name="register" ${auth.register ? "checked" : ""}> Register (<code>POST ${esc(prefix)}/register</code>)</label>
+      </div>
       <div class="sa-toolbar"><button class="uk-button uk-button-primary" type="submit">Save</button></div>
     </form>`;
 
+  const page = body.closest("#page");
   const form = body.querySelector("#auth-form");
   const tableSelect = form.querySelector("#auth-table");
   const fillColumns = () => {
@@ -116,6 +201,7 @@ async function renderAuth(main, app) {
   tableSelect.addEventListener("change", fillColumns);
   fillColumns();
 
+  form.addEventListener("input", () => editing(page, true));
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const v = Object.fromEntries(new FormData(form));
@@ -129,6 +215,7 @@ async function renderAuth(main, app) {
       v.identifier = v.password = v.role = v.active = "";
     }
     if (await attempt(() => api("/config/auth", "PATCH", v), "Saved in silence.json")) {
+      editing(page, false);
       await app.refreshStatus();
     }
   });

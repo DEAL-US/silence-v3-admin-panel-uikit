@@ -601,3 +601,55 @@ body {
   color: var(--sa-delete);
   text-decoration: line-through;
 }
+
+/* Endpoints: who can call each one, chosen in the grid */
+.sa-access {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.sa-access__mode {
+  width: 9.5rem;
+}
+
+.sa-access__detail {
+  width: 11rem;
+}
+
+.sa-label-users {
+  background: var(--sa-post);
+  font-size: .65rem;
+}
+
+.sa-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Console: the lines without details (events) and the last line when it is closed */
+.sa-console__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0 4px 1rem;
+}
+
+.sa-console__event {
+  color: #e6e6e6;
+}
+
+.sa-console__line--event .sa-console__source {
+  color: #8fd1ff;
+}
+
+.sa-console__last {
+  overflow: hidden;
+  min-width: 0;
+  color: #aab4c2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
