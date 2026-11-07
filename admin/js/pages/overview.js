@@ -1,36 +1,39 @@
 // Overview, in tabs: #/ (getting started: the steps, the problems and the app), and the settings
 // of silence.json: #/overview/login (login, register and passwords), #/overview/server and
-// #/overview/advanced (sessions, database scripts, JS API, debug, admin panel). The database
+// #/overview/advanced (database scripts, sessions, JS API, debug, admin panel). The database
 // connection and the users table are in Database. Only the values that change are saved.
-import { api, esc, attempt, editing, toast, iconButton } from "../ui.js";
+import { html, tabs, switchRow, alertList } from "../lib/html.js";
+import { api } from "../lib/api.js";
+import { attempt, editing, toast } from "../lib/ui.js";
+import { formValues, changes } from "../lib/forms.js";
+import { orderedList } from "../components/ordered-list.js";
 
 const TABS = { start: "Getting started", login: "Login and passwords", server: "Server", advanced: "Advanced" };
 
 export function crumbs(params) {
-  const tab = TABS[params[0]] ? params[0] : "start";
-  return tab === "start" ? [] : [{ label: TABS[tab] }];
+  return TABS[params[0]] && params[0] !== "start" ? [{ label: TABS[params[0]] }] : [];
 }
 
 export async function render(main, app, params) {
   const s = app.status;
   if (!s) {
-    main.innerHTML = `<h1>Silence</h1><div class="uk-alert uk-alert-danger">Cannot reach Silence.</div>`;
+    main.innerHTML = html`<h1>Silence</h1><div class="uk-alert uk-alert-danger">Cannot reach Silence.</div>`;
     return;
   }
   const tab = TABS[params[0]] ? params[0] : "start";
-  main.innerHTML = `
-    <h1>${esc(app.info?.project ?? "")}</h1>
-    <p class="uk-text-muted sa-small">${esc(app.info?.projectDir ?? "")}</p>
-    <ul class="uk-tab sa-tabs">
-      ${Object.entries(TABS).map(([key, label]) =>
-        `<li class="${key === tab ? "uk-active" : ""}"><a href="${key === "start" ? "#/" : `#/overview/${key}`}">${label}</a></li>`).join("")}
-    </ul>
+  main.innerHTML = html`
+    <h1>${app.info?.project ?? ""}</h1>
+    <p class="uk-text-muted sa-small">${app.info?.projectDir ?? ""}</p>
+    ${tabs(Object.entries(TABS).map(([key, label]) => ({ key, label, href: key === "start" ? "#/" : `#/overview/${key}` })), tab)}
     <div id="tab"></div>`;
   const body = main.querySelector("#tab");
-  if (tab === "start") return start(body, app);
+  if (tab === "start") {
+    start(body, s);
+    return;
+  }
   const res = await attempt(() => api("/config"));
   if (!res) return;
-  body.innerHTML = `<form id="settings">${FORMS[tab](res.config, app)}
+  body.innerHTML = html`<form class="sa-settings" id="settings">${FORMS[tab](res.config, app)}
     <div class="sa-toolbar"><button class="uk-button uk-button-primary" type="submit">Save</button></div></form>`;
   settingsForm(body.querySelector("#settings"), app);
 }
@@ -39,29 +42,28 @@ export async function render(main, app, params) {
 // Getting started
 ///////////////////////////////////////////////////////////////////////////////
 
-function start(body, app) {
-  const s = app.status;
+function start(body, s) {
   const dbOk = !s.database.error;
-  const step = (done, title, text, href, action) => `
+  const step = (done, title, text, href, action) => html`
     <li class="${done ? "sa-done" : ""}">
       <div><strong>${title}</strong><br><span class="uk-text-muted">${text}</span></div>
       <a class="uk-button ${done ? "uk-button-default" : "uk-button-primary"}" href="${href}">${action}</a>
     </li>`;
   const errors = [...(s.errors.config ?? []).map((e) => `silence.json: ${e}`), ...s.errors.endpoints, ...s.errors.tests];
-  body.innerHTML = `
-    ${errors.length ? `<div class="uk-alert uk-alert-danger"><strong>Problems in the project files</strong>
-      <ul>${errors.map((e) => `<li>${esc(e)}</li>`).join("")}</ul></div>` : ""}
+  const a = s.auth;
+  body.innerHTML = html`
+    ${alertList("danger", "Problems in the project files", errors)}
     <ol class="sa-steps">
       ${step(dbOk, "Connect to the database",
-        dbOk ? `Connected to <code>${esc(s.database.name)}</code>.` : esc(s.database.error),
+        dbOk ? html`Connected to <code>${s.database.name}</code>.` : s.database.error,
         "#/database/connection", dbOk ? "Change" : "Set up")}
-      ${step(s.auth.linked, "Link the users table (optional)",
-        s.auth.linked ? `Users in <code>${esc(s.auth.table)}</code>, identified by <code>${esc(s.auth.identifier)}</code>.`
+      ${step(a.linked, "Link the users table (optional)",
+        a.linked ? html`Users in <code>${a.table}</code>, identified by <code>${a.identifier}</code>.`
           : "Needed for login, register, sessions, roles and owners.",
-        "#/database/auth", s.auth.linked ? "Change" : "Link")}
-      ${step(s.auth.linked && (s.auth.login || s.auth.register), "Login and passwords (optional)",
-        s.auth.linked ? `Login ${s.auth.login ? "on" : "off"}, register ${s.auth.register ? "on" : "off"}; passwords
-          ${s.auth.password_mode === "argon2" ? "encrypted (argon2)" : "as plain text"}.` : "After linking the users table.",
+        "#/database/auth", a.linked ? "Change" : "Link")}
+      ${step(a.linked && (a.login || a.register), "Login and passwords (optional)",
+        a.linked ? `Login ${a.login ? "on" : "off"}, register ${a.register ? "on" : "off"}; passwords `
+          + `${a.password_mode === "argon2" ? "encrypted (argon2)" : "as plain text"}.` : "After linking the users table.",
         "#/overview/login", "Change")}
       ${step(s.endpoints.count > 0, "Generate the endpoints",
         s.endpoints.count ? `${s.endpoints.count} endpoints: ${s.endpoints.auto} autogenerated, ${s.endpoints.custom} custom.`
@@ -73,8 +75,8 @@ function start(body, app) {
         "#/tests", s.tests.count ? "Run" : "Generate")}
     </ol>
     <h2>Your app</h2>
-    <p>The web app is served from <code>web/</code> at <a href="/" target="_blank">${esc(s.baseUrl)}/</a>,
-      and the API at <a href="${esc(s.apiPrefix)}" target="_blank">${esc(s.baseUrl + s.apiPrefix)}</a>.
+    <p>The web app is served from <code>web/</code> at <a href="/" target="_blank">${s.baseUrl}/</a>,
+      and the API at <a href="${s.apiPrefix}" target="_blank">${s.baseUrl + s.apiPrefix}</a>.
       The requests to both are shown in the console where <code>silence run</code> is running; the activity of
       this panel, in its console (at the bottom).</p>`;
 }
@@ -83,152 +85,122 @@ function start(body, app) {
 // Settings: each control says its section of silence.json (data-section)
 ///////////////////////////////////////////////////////////////////////////////
 
-const sw = (section, name, checked, label, disabled = false) => `<div class="sa-switch-row">
-  <label class="sa-switch"><input type="checkbox" data-section="${section}" name="${name}" ${checked ? "checked" : ""}
-    ${disabled ? "disabled" : ""} aria-label="${esc(label.replace(/<[^>]+>/g, ""))}"><span class="sa-switch__slider"></span></label>
-  <span>${label}</span></div>`;
-const field = (section, name, label, value, type = "text", extra = "") => `<div class="sa-field">
+const toggle = (section, name, checked, text, disabled = false) => switchRow(
+  { checked, disabled, label: String(text).replace(/<[^>]+>/g, ""), attrs: { name, "data-section": section } }, text);
+
+const field = (section, name, label, value, { type = "text", disabled = false, min, max } = {}) => html`<div class="sa-field">
   <label class="uk-form-label" for="set-${name}">${label}</label>
-  <input class="uk-input" id="set-${name}" data-section="${section}" name="${name}" type="${type}" value="${esc(value)}" ${extra}></div>`;
-const help = (text) => `<p class="uk-text-muted sa-small">${text}</p>`;
+  <input class="uk-input" id="set-${name}" data-section="${section}" name="${name}" type="${type}" value="${value}"
+    ${min !== undefined ? html`min="${min}"` : ""} ${max !== undefined ? html`max="${max}"` : ""} ${disabled ? "disabled" : ""}></div>`;
+
+const help = (text) => html`<p class="uk-text-muted sa-small">${text}</p>`;
+
+const radio = (section, name, value, checked, text) => html`<label class="sa-radio">
+  <input class="uk-radio" type="radio" data-section="${section}" name="${name}" value="${value}" ${checked ? "checked" : ""}> ${text}</label>`;
 
 const FORMS = {
   login(c, app) {
     const a = c.auth;
     const linked = app.status.auth.linked;
     const prefix = app.status.apiPrefix;
-    return `
-      ${linked ? "" : `<div class="uk-alert uk-alert-warning">They need the users table: link it in <a href="#/database/auth">Database</a>.</div>`}
+    return html`
+      ${linked ? "" : html`<div class="uk-alert uk-alert-warning">They need the users table: link it in
+        <a href="#/database/auth">Database</a>.</div>`}
       <h3>Login and register</h3>
-      ${sw("auth", "login", a.login, `Login: <code>POST ${esc(prefix)}/login</code>`, !linked)}
-      ${sw("auth", "register", a.register, `Register: <code>POST ${esc(prefix)}/register</code>`, !linked)}
-      <div class="sa-form">${field("auth", "default_role", "Role of the new users (register)", a.default_role, "text", linked ? "" : "disabled")}</div>
+      ${toggle("auth", "login", a.login, html`Login: <code>POST ${prefix}/login</code>`, !linked)}
+      ${toggle("auth", "register", a.register, html`Register: <code>POST ${prefix}/register</code>`, !linked)}
+      <div class="sa-form">${field("auth", "default_role", "Role of the new users (register)", a.default_role, { disabled: !linked })}</div>
       <h3>Passwords</h3>
-      ${help(`How they are stored in the password column. Changing it does not convert the stored ones: set them
+      ${help(html`How they are stored in the password column. Changing it does not convert the stored ones: set them
         again in <a href="#/database/users">Database → Users</a>.`)}
-      <label class="sa-radio"><input class="uk-radio" type="radio" data-section="auth" name="password_mode" value="argon2"
-        ${a.password_mode === "argon2" ? "checked" : ""}> Encrypted (<strong>argon2</strong>): the register stores the hash; the login compares with it</label>
-      <label class="sa-radio"><input class="uk-radio" type="radio" data-section="auth" name="password_mode" value="plain"
-        ${a.password_mode === "plain" ? "checked" : ""}> <strong>Plain text</strong>: as they are (only for practice databases)</label>`;
+      ${radio("auth", "password_mode", "argon2", a.password_mode === "argon2",
+        html`Encrypted (<strong>argon2</strong>): the register stores the hash; the login compares with it`)}
+      ${radio("auth", "password_mode", "plain", a.password_mode === "plain",
+        html`<strong>Plain text</strong>: as they are (only for practice databases)`)}`;
   },
   server(c) {
-    return `
-      ${help("The address and the port are used when Silence starts again (<code>silence run</code>).")}
+    const sv = c.server;
+    return html`
+      ${help(html`The address and the port are used when Silence starts again (<code>silence run</code>).`)}
       <div class="sa-form">
-        ${field("server", "address", "Address", c.server.address)}
-        ${field("server", "port", "Port", c.server.port, "number", 'min="1" max="65535"')}
-        ${field("server", "api_prefix", "Prefix of the API", c.server.api_prefix)}
+        ${field("server", "address", "Address", sv.address)}
+        ${field("server", "port", "Port", sv.port, { type: "number", min: 1, max: 65535 })}
+        ${field("server", "api_prefix", "Prefix of the API", sv.api_prefix)}
       </div>
-      ${sw("server", "open_browser", c.server.open_browser, "Open this panel in the browser when Silence starts")}
-      ${sw("server", "log_bodies", c.server.log_bodies, "Show the body of each POST and PUT in the console of <code>silence run</code>")}
-      ${sw("server", "decimals_as_strings", c.server.decimals_as_strings, "Send the DECIMAL columns as strings (exact) instead of numbers")}
-      ${sw("server", "check_updates", c.server.check_updates, "Tell when there is a new version of Silence")}`;
+      ${toggle("server", "open_browser", sv.open_browser, "Open this panel in the browser when Silence starts")}
+      ${toggle("server", "log_bodies", sv.log_bodies, html`Show the body of each POST and PUT in the console of <code>silence run</code>`)}
+      ${toggle("server", "decimals_as_strings", sv.decimals_as_strings, "Send the DECIMAL columns as strings (exact) instead of numbers")}
+      ${toggle("server", "check_updates", sv.check_updates, "Tell when there is a new version of Silence")}`;
   },
   advanced(c) {
-    return `
+    return html`
       <h3>Database scripts</h3>
-      ${help(`The scripts of the project's <code>sql/</code> folder that create the database again, in the order to run
+      ${help(html`The scripts of the project's <code>sql/</code> folder that create the database again, in the order to run
         them (<em>Reload the database</em> in Database and Tests, or <code>silence createdb</code>).`)}
-      <input type="hidden" data-section="database" data-type="json" name="scripts" value="${esc(JSON.stringify(c.database.scripts ?? []))}">
-      <ol class="sa-steps-list" id="scripts-list"></ol>
+      <input type="hidden" data-section="database" data-type="json" name="scripts" value="${JSON.stringify(c.database.scripts ?? [])}">
+      <ol id="scripts-list"></ol>
       <div class="sa-toolbar">
         <label class="uk-button uk-button-default" for="scripts-file">Add scripts…</label>
         <input type="file" id="scripts-file" accept=".sql" multiple hidden>
         <span class="uk-text-muted sa-small">Choose them in the <code>sql/</code> folder of the project.</span>
       </div>
       <h3>Sessions</h3>
-      <div class="sa-form">${field("auth", "token_max_age", "Duration of a session (seconds)", c.auth.token_max_age, "number", 'min="60"')}</div>
+      <div class="sa-form">${field("auth", "token_max_age", "Duration of a session (seconds)", c.auth.token_max_age,
+        { type: "number", min: 60 })}</div>
       <h3>JS API for the web app</h3>
-      ${sw("js_api", "enabled", c.js_api.enabled, "Generate the JavaScript functions to call the API when the endpoints are generated")}
+      ${toggle("js_api", "enabled", c.js_api.enabled, "Generate the JavaScript functions to call the API when the endpoints are generated")}
       <div class="sa-form">${field("js_api", "dir", "Folder", c.js_api.dir)}</div>
       <h3>Debug</h3>
-      ${sw("debug", "debug", c.debug, "Show the SQL queries and the details of the errors in the console of <code>silence run</code>")}
+      ${toggle("debug", "debug", c.debug, html`Show the SQL queries and the details of the errors in the console of <code>silence run</code>`)}
       <h3>Admin panel</h3>
-      ${help(`${c.admin ? `<code>${esc(c.admin.repo)}</code>, version <code>${esc(c.admin.version)}</code>.` : "None."}
+      ${help(html`${c.admin ? html`<code>${c.admin.repo}</code>, version <code>${c.admin.version}</code>.` : "None."}
         To update it: <code>silence admin update</code> (with <code>--version</code> or <code>--latest</code>).`)}`;
   },
 };
 
-function valuesOf(form) {
-  const values = {};  // section -> {name: value}
-  for (const el of form.querySelectorAll("[data-section]")) {
-    if (!el.name || el.disabled) continue;
-    const section = (values[el.dataset.section] ??= {});
-    if (el.type === "checkbox") section[el.name] = el.checked;
-    else if (el.type === "radio") { if (el.checked) section[el.name] = el.value; }
-    else if (el.type === "number") section[el.name] = Number(el.value);
-    else if (el.dataset.type === "json") section[el.name] = JSON.parse(el.value);
-    else section[el.name] = el.value;
-  }
-  return values;
-}
-
-/** The list of the database scripts: added with the file explorer, moved up and down, removed */
+/** The database scripts: added with the file explorer, in a list to move up, down and remove */
 function scriptsList(form, app) {
-  // The ones that Silence says are not in sql/ (in the errors of the configuration)
-  const absent = new Set((app.status.errors.config ?? []).map((e) => e.match(/^database\.scripts: there is no sql\/(.+)$/)?.[1]).filter(Boolean));
   const field = form.querySelector('[name="scripts"]');
   const list = form.querySelector("#scripts-list");
   if (!field || !list) return;
-  const get = () => JSON.parse(field.value);
-  const set = (scripts) => {
-    field.value = JSON.stringify(scripts);
-    form.dispatchEvent(new Event("input"));  // As if typed: the page is being edited
-    draw();
-  };
-  const draw = () => {
-    const scripts = get();
-    list.innerHTML = scripts.length ? scripts.map((s, i) => `<li data-i="${i}">
-      <code class="sa-unit${absent.has(s) ? " sa-unit--missing" : ""}">${esc(s)}</code>
-      ${absent.has(s) ? `<span class="uk-text-danger sa-small">(it is not in sql/)</span>` : ""}
-      <span class="sa-toolbar__spacer"></span>
-      ${iconButton("arrow-up", "Run it before", { action: "up" })}${iconButton("arrow-down", "Run it after", { action: "down" })}${iconButton("close", "Remove", { action: "remove", danger: true })}
-    </li>`).join("") : `<li class="uk-text-muted sa-steps-list__empty">None: add the scripts that create the tables and load the data.</li>`;
-  };
-  list.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-action]");
-    if (!button) return;
-    const scripts = get();
-    const i = Number(button.closest("li").dataset.i);
-    const action = button.dataset.action;
-    if (action === "remove") scripts.splice(i, 1);
-    if (action === "up" && i > 0) [scripts[i - 1], scripts[i]] = [scripts[i], scripts[i - 1]];
-    if (action === "down" && i < scripts.length - 1) [scripts[i + 1], scripts[i]] = [scripts[i], scripts[i + 1]];
-    set(scripts);
+  // The ones that Silence says are not in sql/ (in the errors of the configuration)
+  const absent = new Set((app.status.errors.config ?? [])
+    .map((e) => e.match(/^database\.scripts: there is no sql\/(.+)$/)?.[1]).filter(Boolean));
+  const scripts = orderedList(list, {
+    items: JSON.parse(field.value),
+    labels: { up: "Run it before", down: "Run it after" },
+    empty: "None: add the scripts that create the tables and load the data.",
+    render: (s) => html`<code class="sa-unit ${absent.has(s) ? "sa-unit--missing" : ""}">${s}</code>
+      ${absent.has(s) ? html`<span class="uk-text-danger sa-small">(it is not in sql/)</span>` : ""}`,
+    onChange: (items) => {
+      field.value = JSON.stringify(items);
+      form.dispatchEvent(new Event("input"));  // As if typed: the page is being edited
+    },
   });
   form.querySelector("#scripts-file").addEventListener("change", (event) => {
     // The browser only says the names: Silence checks that they are in sql/ when saving
-    const scripts = get();
-    for (const file of event.target.files) {
-      if (!scripts.includes(file.name)) scripts.push(file.name);
-    }
+    const names = [...event.target.files].map((f) => f.name).filter((n) => !scripts.items().includes(n));
     event.target.value = "";
-    set(scripts);
+    if (names.length) scripts.set([...scripts.items(), ...names]);
   });
-  draw();
 }
 
 function settingsForm(form, app) {
   const page = form.closest("#page");
   scriptsList(form, app);
-  let saved = valuesOf(form);
+  let saved = formValues(form, { bySection: true });
   form.addEventListener("input", () => editing(page, true));
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const current = valuesOf(form);
-    const changes = {};
-    for (const [section, values] of Object.entries(current)) {
-      for (const [k, v] of Object.entries(values)) {
-        if (JSON.stringify(saved[section]?.[k]) !== JSON.stringify(v)) (changes[section] ??= {})[k] = v;
-      }
-    }
-    if (!Object.keys(changes).length) {
+    const current = formValues(form, { bySection: true });
+    const changed = changes(saved, current);
+    if (!Object.keys(changed).length) {
       toast("Nothing has changed", "info");
       editing(page, false);
       return;
     }
     let restart = false;
-    for (const [section, values] of Object.entries(changes)) {
+    for (const [section, values] of Object.entries(changed)) {
       const res = await attempt(() => api(`/config/${section}`, "PATCH", values));
       if (!res) return;  // The rest are not saved: the error says why
       restart ||= res.restartNeeded;
@@ -238,8 +210,8 @@ function settingsForm(form, app) {
     editing(page, false);
     form.querySelector(".sa-restart")?.remove();
     if (restart) {
-      form.insertAdjacentHTML("beforeend", `<div class="uk-alert uk-alert-warning sa-restart">Start Silence again
-        (<code>silence run</code>) to use the new address or port.</div>`);
+      form.insertAdjacentHTML("beforeend", String(html`<div class="uk-alert uk-alert-warning sa-restart">Start Silence
+        again (<code>silence run</code>) to use the new address or port.</div>`));
     }
     await app.refreshStatus();
   });

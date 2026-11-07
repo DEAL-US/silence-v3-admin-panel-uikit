@@ -1,7 +1,9 @@
-// Statistics of the requests since Silence started (kept in memory by Silence), in three groups
-// as silence-dev4 shows them: the student's API, Silence's API (login, register, the admin API)
-// and the student's web app. The tests count too.
-import { api, esc, attempt, method, statusClass } from "../ui.js";
+// Statistics of the requests since Silence started (kept in memory by Silence), in three tabs as
+// silence-dev4 groups them: the student's API, the student's web app and Silence's API (login,
+// register, the admin API). The tests count too.
+import { html, tabs, methodBadge, statusClass, muted } from "../lib/html.js";
+import { api, quietApi } from "../lib/api.js";
+import { attempt } from "../lib/ui.js";
 import { dataTable } from "../components/table.js";
 
 const GROUPS = {
@@ -10,25 +12,30 @@ const GROUPS = {
   silence: ["Silence's API", "Login, register, the API summary and the admin API (this panel)"],
 };
 
-let timer = null;
-
 // What to do to see something in each tab
 const EMPTY = {
-  api: `No requests yet: <a href="#/endpoints">try an endpoint</a>, <a href="#/tests">run the tests</a> or use your web app.`,
-  web: `No requests yet: open <a href="/" target="_blank">your web app</a>.`,
+  api: html`No requests yet: <a href="#/endpoints">try an endpoint</a>, <a href="#/tests">run the tests</a> or use your web app.`,
+  web: html`No requests yet: open <a href="/" target="_blank">your web app</a>.`,
   silence: "No requests yet.",
 };
+
+const REFRESH_MS = 5000;
+let timer = null;
 
 export function crumbs(params) {
   return [{ label: "Statistics", href: "#/stats" }, { label: (GROUPS[params[0]] ?? GROUPS.api)[0] }];
 }
 
-function statuses(byStatus) {
-  const list = Object.entries(byStatus);
-  return list.length
-    ? list.sort().map(([code, n]) => `<span class="sa-status ${statusClass(Number(code))}">${code}</span>×${n}`).join(" ")
-    : `<span class="uk-text-muted">—</span>`;
+export function leave() {
+  clearInterval(timer);
 }
+
+const statuses = (byStatus) => {
+  const list = Object.entries(byStatus).sort();
+  return list.length
+    ? html`${list.map(([code, n]) => html`<span class="sa-status ${statusClass(Number(code))}">${code}</span>×${n} `)}`
+    : muted();
+};
 
 function bytes(n) {
   if (n < 1024) return `${n} B`;
@@ -36,31 +43,36 @@ function bytes(n) {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function card(title, text, big, detail) {
-  return `<div class="uk-card uk-card-default uk-card-small"><div class="uk-card-body">
-    <p class="uk-text-muted uk-margin-remove">${title}</p>
-    <p class="sa-big">${big}</p>
-    <p class="sa-small uk-margin-remove">${detail}</p>
-    <p class="sa-small uk-text-muted uk-margin-remove">${text}</p>
-  </div></div>`;
-}
+const failures = (n, text) => (n ? html`<span class="sa-fail">${n} ${text}</span>` : `0 ${text}`);
 
-function endpointColumns() {
-  return [
-    { key: "method", label: "Method", filter: "select", render: (e) => method(e.method) },
-    { key: "route", label: "Route", render: (e) => `<span class="sa-route">${esc(e.route)}</span>` },
-    { key: "requests", label: "Requests", filter: false },
-    { key: "errors", label: "Errors", filter: false,
-      render: (e) => (e.errors ? `<span class="sa-fail">${e.errors}</span>` : "0") },
-    { key: "status", label: "Status codes", filter: false, sortable: false, render: (e) => statuses(e.byStatus) },
-    { key: "avgMs", label: "Average (ms)", filter: false },
-    { key: "maxMs", label: "Max (ms)", filter: false },
-  ];
-}
+const card = ([title, text], big, detail) => html`<div class="uk-card uk-card-default uk-card-small"><div class="uk-card-body">
+  <p class="uk-text-muted uk-margin-remove">${title}</p>
+  <p class="sa-big">${big}</p>
+  <p class="sa-small uk-margin-remove">${detail}</p>
+  <p class="sa-small uk-text-muted uk-margin-remove">${text}</p>
+</div></div>`;
+
+const ENDPOINT_COLUMNS = [
+  { key: "method", label: "Method", filter: "select", render: (e) => methodBadge(e.method) },
+  { key: "route", label: "Route", render: (e) => html`<span class="sa-route">${e.route}</span>` },
+  { key: "requests", label: "Requests", filter: false },
+  { key: "errors", label: "Errors", filter: false, render: (e) => failures(e.errors, "") },
+  { key: "status", label: "Status codes", filter: false, sortable: false, render: (e) => statuses(e.byStatus) },
+  { key: "avgMs", label: "Average (ms)", filter: false },
+  { key: "maxMs", label: "Max (ms)", filter: false },
+];
+
+const FILE_COLUMNS = [
+  { key: "path", label: "File", render: (f) => html`<span class="sa-route">${f.path}</span>` },
+  { key: "kind", label: "Kind", filter: "select" },
+  { key: "requests", label: "Requests", filter: false },
+  { key: "notFound", label: "Not found", filter: false, render: (f) => failures(f.notFound, "") },
+  { key: "bytes", label: "Sent", filter: false, render: (f) => bytes(f.bytes) },
+];
 
 export async function render(main, app, params) {
   const tab = GROUPS[params[0]] ? params[0] : "api";
-  main.innerHTML = `
+  main.innerHTML = html`
     <h1>Statistics</h1>
     <div class="sa-toolbar">
       <span class="uk-text-muted" id="since"></span>
@@ -69,46 +81,32 @@ export async function render(main, app, params) {
       <button class="uk-button uk-button-default" type="button" id="reset">Reset</button>
     </div>
     <div class="sa-grid" id="totals"></div>
-    <ul class="uk-tab sa-tabs">
-      ${Object.entries(GROUPS).map(([key, [label]]) =>
-        `<li class="${key === tab ? "uk-active" : ""}"><a href="#/stats/${key}">${label} (<span id="count-${key}">…</span>)</a></li>`).join("")}
-    </ul>
+    <div id="tabs"></div>
     <p class="uk-text-muted sa-small">${GROUPS[tab][1]}.</p>
-    <div id="table"></div><div id="api-unmatched"></div>`;
+    <div id="table"></div><div id="unmatched"></div>`;
 
-  const table = dataTable(main.querySelector("#table"), tab === "web" ? {
-    rows: [], sort: { key: "requests", dir: "desc" }, emptyHtml: EMPTY[tab],
-    columns: [
-      { key: "path", label: "File", render: (f) => `<span class="sa-route">${esc(f.path)}</span>` },
-      { key: "kind", label: "Kind", filter: "select" },
-      { key: "requests", label: "Requests", filter: false },
-      { key: "notFound", label: "Not found", filter: false,
-        render: (f) => (f.notFound ? `<span class="sa-fail">${f.notFound}</span>` : "0") },
-      { key: "bytes", label: "Sent", filter: false, render: (f) => bytes(f.bytes) },
-    ],
-  } : { rows: [], sort: { key: "requests", dir: "desc" }, emptyHtml: EMPTY[tab], columns: endpointColumns() });
+  const table = dataTable(main.querySelector("#table"), {
+    rows: [], sort: { key: "requests", dir: "desc" }, empty: EMPTY[tab],
+    columns: tab === "web" ? FILE_COLUMNS : ENDPOINT_COLUMNS,
+  });
 
   async function draw() {
-    let s;
-    try {
-      s = await api("/stats");
-    } catch {
-      return;
-    }
-    main.querySelector("#since").textContent = "Since " + new Date(s.since * 1000).toLocaleString();
-    const apiDetail = (g) => `${g.errors ? `<span class="sa-fail">${g.errors} errors</span>` : "0 errors"} · ${g.avgMs} ms on average`;
-    const kinds = Object.entries(s.web.byKind).map(([k, n]) => `${esc(k)} ${n}`).join(" · ");
-    main.querySelector("#totals").innerHTML =
-      card(GROUPS.api[0], GROUPS.api[1], s.api.requests, apiDetail(s.api)) +
-      card(GROUPS.web[0], GROUPS.web[1], s.web.requests,
-        `${s.web.notFound ? `<span class="sa-fail">${s.web.notFound} not found</span>` : "0 not found"} · ${bytes(s.web.bytes)}${kinds ? ` · ${kinds}` : ""}`) +
-      card(GROUPS.silence[0], GROUPS.silence[1], s.silence.requests, apiDetail(s.silence));
-    for (const g of Object.keys(GROUPS)) main.querySelector(`#count-${g}`).textContent = s[g].requests;
+    const s = await quietApi("/stats").catch(() => null);
+    if (!s) return;
+    main.querySelector("#since").textContent = `Since ${new Date(s.since * 1000).toLocaleString()}`;
+    const apiDetail = (g) => html`${failures(g.errors, "errors")} · ${g.avgMs} ms on average`;
+    const kinds = Object.entries(s.web.byKind).map(([k, n]) => ` · ${k} ${n}`).join("");
+    main.querySelector("#totals").innerHTML = html`
+      ${card(GROUPS.api, s.api.requests, apiDetail(s.api))}
+      ${card(GROUPS.web, s.web.requests, html`${failures(s.web.notFound, "not found")} · ${bytes(s.web.bytes)}${kinds}`)}
+      ${card(GROUPS.silence, s.silence.requests, apiDetail(s.silence))}`;
+    main.querySelector("#tabs").innerHTML = tabs(Object.entries(GROUPS).map(([key, [label]]) =>
+      ({ key, label: `${label} (${s[key].requests})`, href: `#/stats/${key}` })), tab);
     table.update(tab === "web" ? s.web.files : s[tab].endpoints);
     const unmatched = tab === "api" ? Object.entries(s.api.unmatched) : [];
-    main.querySelector("#api-unmatched").innerHTML = unmatched.length ? `
+    main.querySelector("#unmatched").innerHTML = unmatched.length ? html`
       <div class="uk-alert uk-alert-warning sa-small"><strong>Requests to routes without an endpoint (404)</strong>
-        <ul class="uk-margin-remove">${unmatched.map(([k, n]) => `<li><span class="sa-route">${esc(k)}</span> ×${n}</li>`).join("")}</ul>
+        <ul class="uk-margin-remove">${unmatched.map(([k, n]) => html`<li><span class="sa-route">${k}</span> ×${n}</li>`)}</ul>
       </div>` : "";
   }
 
@@ -118,13 +116,7 @@ export async function render(main, app, params) {
     draw();
   });
   await draw();
-  // Refreshing every few seconds would reset the filters while typing: only when not filtering
+  // Refreshing while a filter is being typed would get in the way: only when not filtering
   clearInterval(timer);
-  timer = setInterval(() => {
-    if (![...main.querySelectorAll("[data-filter]")].some((f) => f.value)) draw();
-  }, 5000);
-}
-
-export function leave() {
-  clearInterval(timer);
+  timer = setInterval(() => table.filtering() || draw(), REFRESH_MS);
 }

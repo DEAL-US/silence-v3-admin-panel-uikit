@@ -3,9 +3,9 @@
 //   - actions on Silence (connecting to the database, linking the users table, saving an
 //     endpoint, opening a session as a user...);
 //   - changes in the state of the project (database connected or lost, files reloaded...).
-// Kept in sessionStorage while the tab is open. The student also sees the requests to the API
-// in the console where 'silence run' runs.
-import { esc, json } from "../ui.js";
+// Each line may link to where it happened. Kept in sessionStorage while the tab is open. The
+// student also sees the requests to the API in the console where 'silence run' runs.
+import { html, json } from "../lib/html.js";
 
 const KEY = "silence-admin-console";
 const MAX = 300;
@@ -18,7 +18,7 @@ function load() {
   }
 }
 
-function store(entries) {
+function store() {
   try {
     sessionStorage.setItem(KEY, JSON.stringify(entries.slice(-MAX)));
   } catch {
@@ -33,11 +33,11 @@ let onlyFailures = false;
 function add(entry) {
   entries.push({ time: new Date().toLocaleTimeString(), ...entry });
   entries = entries.slice(-MAX);
-  store(entries);
+  store();
   draw();
 }
 
-/** A request to the student's API: {source, method, path, status, ms, ok, message, response}. */
+/** A request to the student's API: {source, method, path, status, ms, ok, message, response, href}. */
 export function logRequest(entry) {
   add({ kind: "request", ...entry });
 }
@@ -49,53 +49,60 @@ export function logEvent(source, message, { ok = true, details, href } = {}) {
 }
 
 function statusClass(e) {
-  if (!e.status) return "sa-console__status--error";
-  if (e.status >= 500) return "sa-console__status--error";
+  if (!e.status || e.status >= 500) return "sa-console__status--error";
   if (e.status >= 400) return e.ok ? "sa-console__status--expected" : "sa-console__status--warn";
   return "sa-console__status--ok";
 }
 
 function line(e) {
+  const summary = html`
+    <span class="sa-console__time">${e.time}</span>
+    <span class="sa-console__source">${e.source ?? ""}</span>
+    ${e.kind === "event"
+      ? html`<span class="sa-console__event">${e.message}</span>`
+      : html`<span class="sa-method sa-method--${e.method}">${e.method}</span>
+        <span class="sa-route">${e.path}</span>
+        <span class="sa-console__status ${statusClass(e)}">${e.status || "—"}</span>
+        ${e.ms !== undefined ? html`<span class="uk-text-muted">${e.ms} ms</span>` : ""}
+        ${e.message ? html`<span class="sa-console__message">${e.message}</span>` : ""}`}
+    ${e.href ? html`<a class="sa-console__go" href="${e.href}" title="Go there" aria-label="Go there"
+      uk-icon="icon: arrow-right; ratio: .8"></a>` : ""}`;
+  const cls = `sa-console__line sa-console__line--${e.kind ?? "request"}${e.ok ? "" : " sa-console__line--fail"}`;
   const detail = e.response !== undefined && e.response !== null && e.response !== "";
-  const summary = e.kind === "event"
-    ? `<span class="sa-console__time">${esc(e.time)}</span>
-       <span class="sa-console__source">${esc(e.source ?? "")}</span>
-       <span class="sa-console__event">${esc(e.message)}</span>`
-    : `<span class="sa-console__time">${esc(e.time)}</span>
-       <span class="sa-console__source">${esc(e.source ?? "")}</span>
-       <span class="sa-method sa-method--${esc(e.method)}">${esc(e.method)}</span>
-       <span class="sa-route">${esc(e.path)}</span>
-       <span class="sa-console__status ${statusClass(e)}">${e.status || "—"}</span>
-       ${e.ms !== undefined ? `<span class="uk-text-muted">${e.ms} ms</span>` : ""}
-       ${e.message ? `<span class="sa-console__message">${esc(e.message)}</span>` : ""}`;
-  const go = e.href ? `<a class="sa-console__go" href="${esc(e.href)}" title="Go there" uk-icon="icon: arrow-right; ratio: .8"></a>` : "";
-  const cls = `sa-console__line ${e.ok ? "" : "sa-console__line--fail"} sa-console__line--${e.kind ?? "request"}`;
   return detail
-    ? `<details class="${cls}"><summary>${summary}${go}</summary><pre class="sa-pre">${json(e.response)}</pre></details>`
-    : `<div class="${cls}"><div class="sa-console__summary">${summary}${go}</div></div>`;
+    ? html`<details class="${cls}"><summary>${summary}</summary><pre class="sa-pre">${json(e.response)}</pre></details>`
+    : html`<div class="${cls}"><div class="sa-console__summary">${summary}</div></div>`;
+}
+
+const shown = () => (onlyFailures ? entries.filter((e) => !e.ok) : entries);
+
+/** The last entry, in one line, for the closed console */
+function last(e) {
+  const text = e.kind === "event" ? `${e.source}: ${e.message}` : `${e.method} ${e.path} ${e.status || ""}`;
+  return html`<span class="sa-console__last ${e.ok ? "" : "sa-console__message"}">${text}</span>`;
 }
 
 function draw() {
   const root = document.querySelector("#console");
   if (!root) return;
-  const errors = entries.filter((e) => !e.ok).length;
+  const failed = entries.filter((e) => !e.ok).length;
   root.classList.toggle("sa-console--open", open);
-  root.innerHTML = `
+  root.innerHTML = html`
     <div class="sa-console__bar">
-      <button type="button" class="sa-console__toggle" id="console-toggle" aria-expanded="${open}">
+      <button type="button" class="sa-console__toggle" id="console-toggle" aria-expanded="${open}" aria-controls="console-body">
         <span uk-icon="icon: ${open ? "chevron-down" : "chevron-up"}; ratio: .8"></span>
         Console <span class="uk-badge">${entries.length}</span>
-        ${errors ? `<span class="uk-badge sa-console__errors">${errors} failed</span>` : ""}
+        ${failed ? html`<span class="uk-badge sa-console__errors">${failed} failed</span>` : ""}
       </button>
-      ${!open && entries.length ? `<span class="sa-console__last">${lastText(entries[entries.length - 1])}</span>` : ""}
+      ${!open && entries.length ? last(entries[entries.length - 1]) : ""}
       <span class="sa-toolbar__spacer"></span>
-      ${open ? `<label class="sa-console__filter"><input class="uk-checkbox" type="checkbox" id="console-failures"
-        ${onlyFailures ? "checked" : ""}> Only failures</label>
+      ${open ? html`<label class="sa-console__filter"><input class="uk-checkbox" type="checkbox" id="console-failures"
+          ${onlyFailures ? "checked" : ""}> Only failures</label>
         <button type="button" class="uk-button uk-button-default uk-button-small" id="console-clear">Clear</button>` : ""}
     </div>
-    ${open ? `<div class="sa-console__body">
-      ${shown().length ? [...shown()].reverse().map(line).join("")
-        : `<p class="uk-text-muted sa-small">${entries.length ? "No failures." : "Nothing yet: the activity of the panel will appear here."}</p>`}
+    ${open ? html`<div class="sa-console__body" id="console-body">
+      ${shown().length ? [...shown()].reverse().map(line)
+        : html`<p class="uk-text-muted sa-small">${entries.length ? "No failures." : "Nothing yet: the activity of the panel will appear here."}</p>`}
     </div>` : ""}`;
   root.querySelector("#console-toggle").addEventListener("click", () => {
     open = !open;
@@ -107,17 +114,9 @@ function draw() {
   });
   root.querySelector("#console-clear")?.addEventListener("click", () => {
     entries = [];
-    store(entries);
+    store();
     draw();
   });
-}
-
-const shown = () => (onlyFailures ? entries.filter((e) => !e.ok) : entries);
-
-/** The last entry, in one line, for the closed console */
-function lastText(e) {
-  const text = e.kind === "event" ? `${e.source}: ${e.message}` : `${e.method} ${e.path} ${e.status || ""}`;
-  return `<span class="${e.ok ? "" : "sa-console__message"}">${esc(text)}</span>`;
 }
 
 export function initConsole() {

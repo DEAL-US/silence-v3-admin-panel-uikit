@@ -1,8 +1,11 @@
-// Admin panel of Silence: a single page with one view per hash (#/endpoints/custom...).
-// Each page exports render(main, app, params), crumbs(params) (the breadcrumb after
-// "Overview", as [{label, href}]) and, for the second-level pages (edit, new, try...),
-// parent(params): where the Back button goes. First-level pages (and their tabs) have none.
-import { api, esc, session, editing, studentApi, activity } from "./ui.js";
+// Admin panel of Silence: a single page with one view per hash (#/endpoints, #/tests/composite...).
+// Each page exports render(main, app, params), crumbs(params) (the breadcrumb after "Overview",
+// as [{label, href}]) and, for the second-level pages (edit, new, try...), parent(params): where
+// the Back button goes. Optionally, leave(): when another page is shown.
+import { html } from "./lib/html.js";
+import { api, quietApi, activity } from "./lib/api.js";
+import { session, studentApi } from "./lib/student-api.js";
+import { editing } from "./lib/ui.js";
 import { initConsole, logEvent } from "./components/console.js";
 import * as overview from "./pages/overview.js";
 import * as database from "./pages/database.js";
@@ -10,35 +13,31 @@ import * as endpoints from "./pages/endpoints.js";
 import * as tests from "./pages/tests.js";
 import * as stats from "./pages/stats.js";
 
-const routes = {
-  "": overview,
-  overview,
-  database,
-  endpoints,
-  tests,
-  stats,
-};
+const routes = { "": overview, overview, database, endpoints, tests, stats };
+
+// How often the panel asks Silence whether the project changed outside it (an editor, git...)
+const WATCH_MS = 3000;
+// How long after an action of the panel a change of the project is taken as its own
+const OWN_CHANGE_MS = 4000;
 
 let current = null;
+let panel = { version: "?", api: 1 };  // panel.json
+let lastRevision = null;
+let rendering = false;
 
-// Version of the admin API that this panel needs (also in panel.json)
-const PANEL_API = 1;
-let panelVersion = "";
+const $ = (selector) => document.querySelector(selector);
+const capitalize = (text) => text[0].toUpperCase() + text.slice(1);
 
 export const app = {
   info: null,
   status: null,
-  /** Changes where the Back button goes, once the page knows it (e.g., the tab of an endpoint) */
-  setBack(href) {
-    const back = document.querySelector(".sa-back");
-    if (back) back.href = href;
-  },
-  /** The state of the project. sync: the page already shows it (e.g., after saving), so a new
-   *  revision is not a change to show again */
+  lost: false,
+  /** The state of the project (GET /status). sync: the page already shows it (e.g., after
+   *  saving), so a new revision is not a change to show again */
   async refreshStatus({ sync = true } = {}) {
     let s;
     try {
-      s = await api("/status", "GET", undefined, undefined, { quiet: true });
+      s = await quietApi("/status");
     } catch {
       if (this.status && !this.lost) logEvent("Silence", "Cannot reach Silence: is 'silence run' running?", { ok: false });
       this.lost = true;
@@ -49,38 +48,47 @@ export const app = {
     reportChanges(this.status, s);
     this.status = s;
     if (sync) lastRevision = s.revision;
-    document.querySelector("#project-name").textContent = this.info?.project ?? "";
-    document.querySelector("#version").textContent = `Silence v${this.info?.silence ?? "?"} · panel v${panelVersion}`;
-    document.querySelector("#link-api").href = s.apiPrefix;
-    const dot = document.querySelector("#dot-database");
-    dot.className = "sa-dot " + (s.database.error ? "sa-dot--error" : "sa-dot--ok");
-    dot.title = s.database.error || s.database.name;
-    document.querySelector("#count-endpoints").textContent = s.endpoints.count || "";
-    document.querySelector("#count-tests").textContent = s.tests.count || "";
+    drawSidebar(s);
     return s;
   },
 };
+
+function drawSidebar(s) {
+  $("#project-name").textContent = app.info?.project ?? "";
+  $("#version").textContent = `Silence v${app.info?.silence ?? "?"} · panel v${panel.version}`;
+  $("#link-api").href = s.apiPrefix;
+  const dot = $("#dot-database");
+  dot.className = `sa-dot ${s.database.error ? "sa-dot--error" : "sa-dot--ok"}`;
+  dot.title = s.database.error || s.database.name;
+  $("#count-endpoints").textContent = s.endpoints.count || "";
+  $("#count-tests").textContent = s.tests.count || "";
+}
 
 /** The changes in the state of the project, to the console (the first time, the whole state) */
 function reportChanges(prev, s) {
   const db = (x) => (x.database.error ? `not connected: ${x.database.error}` : `connected to ${x.database.name}`);
   const users = (x) => (x.auth.linked
-    ? `users table ${x.auth.table} linked (login ${x.auth.login ? "on" : "off"}, register ${x.auth.register ? "on" : "off"}, passwords ${x.auth.password_mode})`
+    ? `users table ${x.auth.table} linked (login ${x.auth.login ? "on" : "off"}, register ${x.auth.register ? "on" : "off"}, `
+      + `passwords ${x.auth.password_mode})`
     : "users table not linked");
   if (!prev) {
     logEvent("Silence", `Panel opened: Silence v${app.info?.silence ?? "?"}, project ${app.info?.project ?? ""}`);
-    logEvent("Database", db(s)[0].toUpperCase() + db(s).slice(1), { ok: !s.database.error });
-    logEvent("Users", users(s)[0].toUpperCase() + users(s).slice(1));
-    logEvent("Project", `${s.endpoints.count} endpoints (${s.endpoints.auto} autogenerated, ${s.endpoints.custom} custom), ${s.tests.count} tests`);
+    logEvent("Database", capitalize(db(s)), { ok: !s.database.error });
+    logEvent("Users", capitalize(users(s)));
+    logEvent("Project", `${s.endpoints.count} endpoints (${s.endpoints.auto} autogenerated, ${s.endpoints.custom} custom), `
+      + `${s.tests.count} tests`);
   } else {
-    if (db(prev) !== db(s)) logEvent("Database", s.database.error ? `Connection lost: ${s.database.error}` : `Connected to ${s.database.name}`, { ok: !s.database.error });
-    if (users(prev) !== users(s)) logEvent("Users", users(s)[0].toUpperCase() + users(s).slice(1));
-    if (s.revision !== prev.revision && Date.now() - activity.last > 4000) {
+    if (db(prev) !== db(s)) {
+      logEvent("Database", s.database.error ? `Connection lost: ${s.database.error}` : `Connected to ${s.database.name}`,
+        { ok: !s.database.error });
+    }
+    if (users(prev) !== users(s)) logEvent("Users", capitalize(users(s)));
+    if (s.revision !== prev.revision && Date.now() - activity.last > OWN_CHANGE_MS) {
       logEvent("Project", `Files changed outside the panel and reloaded: ${s.endpoints.count} endpoints, ${s.tests.count} tests`);
     }
   }
   for (const [kind, label] of [["config", "silence.json"], ["endpoints", "Endpoints"], ["tests", "Tests"]]) {
-    const before = prev ? prev.errors[kind] ?? [] : [];
+    const before = prev?.errors[kind] ?? [];
     const now = s.errors[kind] ?? [];
     const added = now.filter((e) => !before.includes(e));
     if (added.length) logEvent(label, `${added.length} error(s) in the files`, { ok: false, details: added.join("\n") });
@@ -89,46 +97,54 @@ function reportChanges(prev, s) {
 }
 
 function showSession() {
-  const box = document.querySelector("#acting-as");
-  const current = session.get();
-  box.hidden = !current;
-  if (current) {
-    box.innerHTML = `Trying the API as <strong>${esc(current.label)}</strong>
-      <button class="uk-button uk-button-default uk-button-small" type="button" id="end-session">End</button>`;
-    box.querySelector("#end-session").addEventListener("click", () => session.set(null));
-  }
+  const box = $("#acting-as");
+  const who = session.get();
+  box.hidden = !who;
+  if (!who) return;
+  box.innerHTML = html`Trying the API as <strong>${who.label}</strong>
+    <button class="uk-button uk-button-default uk-button-small" type="button" id="end-session">End</button>`;
+  box.querySelector("#end-session").addEventListener("click", () => session.set(null));
 }
 
-let lastRevision = null;
-let rendering = false;
-
 /** The project's files changed (panel, editor, git...): show them again, unless the user is editing. */
-async function watchRevision() {
-  try {
-    const s = await app.refreshStatus({ sync: false });
-    if (!s || app.lost) return;
-    if (lastRevision !== null && s.revision !== lastRevision && !rendering
-        && !editing(document.querySelector("#page"))) {
-      lastRevision = s.revision;
-      await render();
-      return;
-    }
+async function watch() {
+  const s = await app.refreshStatus({ sync: false });
+  if (!s || app.lost) return;
+  // A new revision right after an action of the panel is its own (the page shows it already)
+  if (Date.now() - activity.last < OWN_CHANGE_MS) {
     lastRevision = s.revision;
-  } catch {
-    // Silence stopped: try again later
+    return;
   }
+  if (lastRevision !== null && s.revision !== lastRevision && !rendering && !editing($("#page"))) {
+    lastRevision = s.revision;
+    await render();
+    return;
+  }
+  lastRevision = s.revision;
 }
 
 function drawTopbar(crumbs, parent) {
   const all = [{ label: "Overview", href: "#/" }, ...crumbs];
-  document.querySelector("#topbar").innerHTML = `
-    ${parent ? `<a class="uk-button uk-button-default uk-button-small sa-back" href="${esc(parent)}">
-      <span uk-icon="icon: arrow-left; ratio: .8"></span> Back</a>` : ""}
+  // The breadcrumb first; the Back button (second-level pages) at the other end of the bar
+  $("#topbar").innerHTML = html`
     <ul class="uk-breadcrumb sa-crumbs">
-      ${all.map((c, i) => i === all.length - 1
-        ? `<li><span aria-current="page">${esc(c.label)}</span></li>`
-        : `<li><a href="${esc(c.href)}">${esc(c.label)}</a></li>`).join("")}
-    </ul>`;
+      ${all.map((c, i) => (i === all.length - 1
+        ? html`<li><span aria-current="page">${c.label}</span></li>`
+        : html`<li><a href="${c.href}">${c.label}</a></li>`))}
+    </ul>
+    ${parent ? html`<a class="uk-button uk-button-default uk-button-small sa-back" href="${parent}">
+      <span uk-icon="icon: arrow-left; ratio: .8"></span> Back</a>` : ""}`;
+}
+
+function markNav(name) {
+  const active = name === "overview" ? "" : name;
+  for (const a of document.querySelectorAll(".sa-nav a")) {
+    const target = a.getAttribute("href").replace(/^#\/?/, "");
+    a.parentElement.classList.toggle("uk-active", target === active);
+    if (target === active) a.setAttribute("aria-current", "page");
+    else a.removeAttribute("aria-current");
+  }
+  $("#nav").classList.remove("sa-nav--open");
 }
 
 async function render() {
@@ -137,27 +153,14 @@ async function render() {
   const name = parts[0] ?? "";
   const params = parts.slice(1);
   const page = routes[name] ?? overview;
-  for (const link of document.querySelectorAll(".sa-nav a")) {
-    const target = link.getAttribute("href").replace(/^#\/?/, "");
-    const current = name === "overview" ? "" : name;
-    link.parentElement.classList.toggle("uk-active", target === current);
-    if (target === current) {
-      link.setAttribute("aria-current", "page");
-    } else {
-      link.removeAttribute("aria-current");
-    }
-  }
-  document.querySelector("#nav").classList.remove("sa-nav--open");
-  if (current?.leave) {
-    current.leave();
-  }
+  markNav(name);
+  current?.leave?.();
   current = page;
-  const main = document.querySelector("#page");
+  const main = $("#page");
   main.innerHTML = "";
   editing(main, false);
   drawTopbar(page.crumbs ? page.crumbs(params) : [], page.parent ? page.parent(params) : null);
   await app.refreshStatus();
-  lastRevision = app.status?.revision ?? lastRevision;
   try {
     await page.render(main, app, params);
   } finally {
@@ -165,29 +168,30 @@ async function render() {
   }
 }
 
+/** The versions: of the panel (panel.json) and of Silence, and whether they understand each other */
 async function checkCompatibility() {
   try {
-    panelVersion = (await (await fetch("panel.json")).json()).version;
+    panel = await (await fetch("panel.json")).json();
     app.info = await api("/");
     Object.assign(studentApi, app.info.studentApi ?? {});
   } catch {
     return;
   }
-  if (app.info.api !== PANEL_API) {
-    document.querySelector("#page").insertAdjacentHTML("beforebegin",
-      `<div class="uk-alert uk-alert-warning sa-main">This panel needs version ${PANEL_API} of the admin API of Silence,
-        and this Silence has version ${app.info.api}. Run <code>silence admin update</code> or update Silence.</div>`);
+  if (app.info.api !== panel.api) {
+    $("#page").insertAdjacentHTML("beforebegin", String(html`<div class="uk-alert uk-alert-warning sa-main">This panel needs
+      version ${panel.api} of the admin API of Silence, and this Silence has version ${app.info.api}. Run
+      <code>silence admin update</code> or update Silence.</div>`));
   }
 }
 
-async function main() {
+async function start() {
   document.addEventListener("sa-session", showSession);
   window.addEventListener("hashchange", render);
   showSession();
   initConsole();
   await checkCompatibility();
   await render();
-  setInterval(watchRevision, 3000);
+  setInterval(watch, WATCH_MS);
 }
 
-document.addEventListener("DOMContentLoaded", main);
+document.addEventListener("DOMContentLoaded", start);

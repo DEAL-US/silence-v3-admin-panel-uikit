@@ -1,38 +1,72 @@
-/* Silence admin panel: on top of UIkit (vendor/uikit), with the sa- prefix. */
+/* Silence admin panel: on top of UIkit (vendor/uikit), with the sa- prefix.
+   1. Tokens   2. Layout   3. Sidebar   4. Top bar   5. Text and helpers   6. Forms and toolbars
+   7. Tabs   8. Grids   9. Badges   10. Buttons and switches   11. Lists   12. Endpoints
+   13. Tests   14. Overview and statistics   15. Console   16. Small screens */
 
+/* 1. Tokens ---------------------------------------------------------------------------------- */
 :root {
   --sa-side-width: 15rem;
   --sa-side-bg: #1e2a38;
+  --sa-page-bg: #f4f6f9;
+  --sa-border: #e5e5e5;
   --sa-accent: #1e87f0;
+  --sa-text: #333;
+
+  /* Methods, results and states */
   --sa-get: #2f8f5b;
   --sa-post: #1e87f0;
   --sa-put: #d98a00;
   --sa-delete: #d4344a;
   --sa-ok: #32d296;
   --sa-error: #f0506e;
-  --sa-muted-bg: #f8f8f8;
+
+  /* Console (dark) */
+  --sa-console-bg: #1b2430;
+  --sa-console-line: #2c3746;
+  --sa-console-text: #e6e6e6;
+  --sa-console-muted: #8a96a6;
+  --sa-console-soft: #aab4c2;
+  --sa-console-info: #8fd1ff;
+  --sa-console-warn: #ffb84d;
+  --sa-console-error: #ff7a8f;
+  --sa-console-message: #ffb3bf;
+  --sa-console-pre: #111821;
+  --sa-console-badge: #3a4656;
+
+  --sa-console-height: 2.5rem;
   --sa-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
+/* 2. Layout ---------------------------------------------------------------------------------- */
 body {
-  background: #f4f6f9;
+  background: var(--sa-page-bg);
 }
 
 .sa-layout {
   display: grid;
   grid-template-columns: var(--sa-side-width) 1fr;
   min-height: 100vh;
+  padding-bottom: var(--sa-console-height); /* the closed console does not cover the end of the page */
 }
 
-/* Sidebar */
+.sa-main {
+  min-width: 0;
+  padding: 32px 40px;
+}
+
+.sa-main h1 {
+  margin-top: 0;
+}
+
+/* 3. Sidebar --------------------------------------------------------------------------------- */
 .sa-side {
   position: sticky;
   top: 0;
-  height: 100vh;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 20px;
+  height: 100vh;
   padding: 24px 16px;
   overflow-y: auto;
   background: var(--sa-side-bg);
@@ -42,9 +76,9 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  color: #fff;
   font-size: 1.3rem;
   font-weight: 600;
-  color: #fff;
   text-decoration: none;
 }
 
@@ -102,41 +136,6 @@ body {
   font-size: .75rem;
 }
 
-.sa-main {
-  padding: 32px 40px;
-  min-width: 0;
-}
-
-.sa-main > h1 {
-  margin-top: 0;
-}
-
-@media (max-width: 960px) {
-  .sa-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .sa-side {
-    position: static;
-    height: auto;
-  }
-
-  .sa-menu-toggle {
-    display: inline-block;
-    align-self: flex-start;
-  }
-
-  .sa-nav:not(.sa-nav--open),
-  .sa-nav:not(.sa-nav--open) ~ .sa-side__footer {
-    display: none;
-  }
-
-  .sa-main {
-    padding: 16px;
-  }
-}
-
-/* Status dot (database) */
 .sa-dot {
   display: inline-block;
   width: 8px;
@@ -153,12 +152,75 @@ body {
   background: var(--sa-error);
 }
 
-/* Toolbars, sections and forms */
+/* 4. Top bar: the breadcrumb, and the Back button at the other end ---------------------------- */
+.sa-topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 30px;
+  margin-bottom: 16px;
+}
+
+.sa-crumbs {
+  margin: 0;
+}
+
+.sa-back {
+  margin-left: auto;
+}
+
+/* 5. Text and helpers ------------------------------------------------------------------------ */
+.sa-small {
+  font-size: .85rem;
+}
+
+.sa-route {
+  font-family: var(--sa-mono);
+  font-size: .85rem;
+  word-break: break-all;
+}
+
+.sa-code {
+  min-height: 7rem;
+  font-family: var(--sa-mono);
+  font-size: .82rem;
+}
+
+.sa-code--tall {
+  min-height: 22rem;
+}
+
+.sa-pre {
+  max-height: 22rem;
+  overflow: auto;
+  font-size: .78rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.sa-big {
+  margin: 0;
+  font-size: 2.2rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+/* Only for the screen readers */
+.sa-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* 6. Forms and toolbars ---------------------------------------------------------------------- */
 .sa-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
   align-items: center;
+  gap: 8px;
   margin-bottom: 20px;
 }
 
@@ -168,16 +230,6 @@ body {
 
 .sa-toolbar .uk-select {
   width: auto;
-}
-
-.sa-section {
-  margin-bottom: 40px;
-}
-
-.sa-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-  gap: 20px;
 }
 
 .sa-form {
@@ -195,162 +247,56 @@ body {
   margin-bottom: 12px;
 }
 
-.sa-small {
-  font-size: .85rem;
+.sa-radio {
+  display: block;
+  margin-bottom: 8px;
 }
 
-/* Overview steps */
-.sa-steps {
-  list-style: none;
-  padding: 0;
-  counter-reset: step;
+.sa-settings h3 {
+  margin-top: 28px;
 }
 
-.sa-steps li {
-  counter-increment: step;
-  display: grid;
-  grid-template-columns: 2.2rem 1fr auto;
-  gap: 14px;
-  align-items: center;
-  padding: 14px 0;
-  border-bottom: 1px solid #e5e5e5;
+/* 7. Tabs ------------------------------------------------------------------------------------ */
+.sa-tabs {
+  margin-bottom: 20px;
 }
 
-.sa-steps li::before {
-  content: counter(step);
-  display: grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  background: #e5e5e5;
-  font-weight: 700;
+/* 8. Grids (components/table.js) ------------------------------------------------------------- */
+.sa-table th,
+.sa-table td {
+  padding-right: 8px;
+  padding-left: 8px;
 }
 
-.sa-steps li.sa-done::before {
-  content: "✓";
-  background: var(--sa-ok);
-  color: #fff;
+.sa-table td {
+  vertical-align: middle;
 }
 
-/* Methods, sources and routes */
-.sa-method {
-  display: inline-block;
-  min-width: 4.4em;
-  padding: 1px 6px;
-  border-radius: 3px;
-  color: #fff;
-  font: 700 .72rem var(--sa-mono);
-  text-align: center;
-}
-
-.sa-method--GET { background: var(--sa-get); }
-.sa-method--POST { background: var(--sa-post); }
-.sa-method--PUT { background: var(--sa-put); }
-.sa-method--DELETE { background: var(--sa-delete); }
-
-.sa-label-auto {
-  background: #999;
-}
-
-.sa-route {
-  font-family: var(--sa-mono);
-  font-size: .85rem;
-  word-break: break-all;
-}
-
-.sa-table td.sa-actions {
+.sa-table td.sa-actions,
+.sa-table td.sa-nowrap,
+.sa-table .sa-route {
   white-space: nowrap;
-  text-align: left;
+  word-break: normal;
 }
 
-.sa-table tr.sa-open > td {
-  background: #eef5fd;
-}
-
-/* Code and responses */
-.sa-code {
-  min-height: 7rem;
-  font-family: var(--sa-mono);
-  font-size: .82rem;
-}
-
-.sa-dialog .sa-code {
-  min-height: 9rem;
-}
-
-.sa-dialog {
-  width: min(100% - 2rem, 52rem);
-}
-
-.sa-pre {
-  max-height: 22rem;
-  overflow: auto;
-  font-size: .78rem;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.sa-status {
-  font-weight: 700;
-  font-family: var(--sa-mono);
-}
-
-.sa-status--ok { color: var(--sa-get); }
-.sa-status--client { color: var(--sa-put); }
-.sa-status--server { color: var(--sa-delete); }
-
-.sa-pass { color: var(--sa-get); font-weight: 700; }
-.sa-fail { color: var(--sa-delete); font-weight: 700; }
-
-.sa-step {
-  margin: 6px 0;
-  padding-left: 10px;
-  border-left: 3px solid #e5e5e5;
-}
-
-.sa-step--fail { border-left-color: var(--sa-delete); }
-.sa-step--pass { border-left-color: var(--sa-get); }
-
-.sa-big {
-  margin: 0;
-  font-size: 2.2rem;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-/* Top bar: back button and breadcrumb */
-.sa-topbar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-height: 30px;
-  margin-bottom: 16px;
-}
-
-.sa-crumbs {
-  margin: 0;
-}
-
-/* Table component: sortable headers and filters */
 .sa-sort {
   padding: 0;
   border: 0;
   background: none;
-  font: inherit;
   color: inherit;
+  font: inherit;
   text-transform: inherit;
-  cursor: pointer;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .sa-sort:hover {
-  color: #333;
+  color: var(--sa-text);
 }
 
 .sa-sort__arrow {
-  font-size: .7em;
   color: var(--sa-accent);
+  font-size: .7em;
 }
 
 .sa-table__filters th {
@@ -367,53 +313,57 @@ body {
   background: #fafafa;
 }
 
+.sa-table__empty .uk-button {
+  margin-left: 8px;
+}
+
 .sa-table__count {
   margin-top: -10px;
 }
 
-/* A button waiting for the confirmation click */
-.sa-armed,
-.sa-armed:hover {
-  background: var(--sa-delete) !important;
-  border-color: var(--sa-delete) !important;
-  color: #fff !important;
+/* 9. Badges: methods, sources, statuses, results --------------------------------------------- */
+.sa-method {
+  display: inline-block;
+  min-width: 4.4em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: #fff;
+  font: 700 .72rem var(--sa-mono);
+  text-align: center;
 }
 
-/* Tabs of the endpoints and the tests */
-.sa-tabs {
-  margin-bottom: 20px;
+.sa-method--GET { background: var(--sa-get); }
+.sa-method--POST { background: var(--sa-post); }
+.sa-method--PUT { background: var(--sa-put); }
+.sa-method--DELETE { background: var(--sa-delete); }
+
+.sa-label-auto { background: #999; }
+.sa-label-custom { background: var(--sa-post); }
+
+.sa-label-small {
+  padding: 0 6px;
+  font-size: .7rem;
+  text-transform: none;
 }
 
-.sa-yes {
-  color: var(--sa-get);
-  font-weight: 600;
+.sa-label-users {
+  background: var(--sa-post);
+  font-size: .65rem;
 }
 
-.sa-code--tall {
-  min-height: 22rem;
+.sa-status {
+  font-family: var(--sa-mono);
+  font-weight: 700;
 }
 
-/* Grids: routes in one line, compact actions */
-.sa-table .sa-route {
-  white-space: nowrap;
-  word-break: normal;
-}
+.sa-status--ok { color: var(--sa-get); }
+.sa-status--client { color: var(--sa-put); }
+.sa-status--server { color: var(--sa-delete); }
 
-.sa-table td {
-  vertical-align: middle;
-}
+.sa-pass { color: var(--sa-get); font-weight: 700; }
+.sa-fail { color: var(--sa-delete); font-weight: 700; }
 
-.sa-table td.sa-actions .uk-button {
-  padding: 0 10px;
-}
-
-.sa-table th,
-.sa-table td {
-  padding-left: 8px;
-  padding-right: 8px;
-}
-
-/* Icon buttons of the grid rows */
+/* 10. Buttons and switches ------------------------------------------------------------------- */
 .sa-icon-button {
   width: 28px;
   height: 28px;
@@ -427,6 +377,14 @@ body {
   color: #fff;
 }
 
+/* A button waiting for the confirmation click */
+.sa-armed,
+.sa-armed:hover {
+  border-color: var(--sa-delete) !important;
+  background: var(--sa-delete) !important;
+  color: #fff !important;
+}
+
 .sa-icon-button.sa-armed {
   width: auto;
   padding: 0 10px;
@@ -434,227 +392,6 @@ body {
   font-size: .75rem;
 }
 
-.sa-table td.sa-desc {
-  min-width: 10rem;
-  max-width: 18rem;
-}
-
-.sa-table td.sa-nowrap {
-  white-space: nowrap;
-}
-
-/* Composite test editor: the ordered list of its steps */
-.sa-steps-list {
-  max-width: 48rem;
-  padding-left: 1.5rem;
-}
-
-.sa-steps-list li {
-  margin: 4px 0;
-}
-
-.sa-steps-list li:not(.sa-steps-list__empty) {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 8px;
-  background: #fff;
-  border: 1px solid #e5e5e5;
-  border-radius: 4px;
-}
-
-.sa-step-select {
-  width: auto;
-  min-width: 18rem;
-}
-
-/* Console: a drawer at the bottom with the panel's requests to the student's API */
-.sa-layout {
-  padding-bottom: 2.5rem; /* the closed console does not cover the end of the page */
-}
-
-.sa-console {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: var(--sa-side-width);
-  z-index: 980;
-  color: #e6e6e6;
-  background: #1b2430;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.2);
-  font-size: .8rem;
-}
-
-.sa-console__bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 2.5rem;
-  padding: 0 12px;
-}
-
-.sa-console__toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0;
-  border: 0;
-  color: inherit;
-  background: none;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.sa-console .uk-badge {
-  background: #3a4656;
-}
-
-.sa-console .uk-badge.sa-console__errors {
-  background: var(--sa-delete);
-}
-
-.sa-console__body {
-  max-height: 40vh;
-  overflow-y: auto;
-  padding: 0 12px 8px;
-  border-top: 1px solid #2c3746;
-}
-
-.sa-console__line {
-  border-bottom: 1px solid #2c3746;
-}
-
-.sa-console__line summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 0;
-  cursor: pointer;
-}
-
-.sa-console__line--fail {
-  background: rgba(212, 52, 74, 0.15);
-}
-
-.sa-console__time {
-  color: #8a96a6;
-  font-family: var(--sa-mono);
-}
-
-.sa-console__source {
-  min-width: 8rem;
-  color: #aab4c2;
-}
-
-.sa-console .sa-route {
-  color: #fff;
-}
-
-.sa-console__status {
-  font-family: var(--sa-mono);
-  font-weight: 700;
-}
-
-.sa-console__status--ok { color: var(--sa-ok); }
-.sa-console__status--expected { color: #8fd1ff; }
-.sa-console__status--warn { color: #ffb84d; }
-.sa-console__status--error { color: #ff7a8f; }
-
-.sa-console__message {
-  color: #ffb3bf;
-}
-
-.sa-console .sa-pre {
-  max-height: 14rem;
-  color: #e6e6e6;
-  background: #111821;
-}
-
-.sa-console p {
-  margin: 8px 0;
-}
-
-@media (max-width: 960px) {
-  .sa-console {
-    left: 0;
-  }
-}
-
-.sa-console .uk-button-default {
-  color: #e6e6e6;
-  border-color: #4a5668;
-}
-
-.sa-console .uk-button-default:hover {
-  color: #fff;
-  border-color: #8a96a6;
-}
-
-/* The name of a unit test (in the composite tests) */
-.sa-unit {
-  color: #333;
-}
-
-.sa-unit--missing {
-  color: var(--sa-delete);
-  text-decoration: line-through;
-}
-
-/* Endpoints: who can call each one, chosen in the grid */
-.sa-access {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-
-.sa-access__mode {
-  width: 9.5rem;
-}
-
-.sa-access__detail {
-  width: 11rem;
-}
-
-.sa-label-users {
-  background: var(--sa-post);
-  font-size: .65rem;
-}
-
-.sa-checks {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-/* Console: the lines without details (events) and the last line when it is closed */
-.sa-console__summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 0 4px 1rem;
-}
-
-.sa-console__event {
-  color: #e6e6e6;
-}
-
-.sa-console__line--event .sa-console__source {
-  color: #8fd1ff;
-}
-
-.sa-console__last {
-  overflow: hidden;
-  min-width: 0;
-  color: #aab4c2;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-/* A switch (a checkbox) */
 .sa-switch {
   position: relative;
   display: inline-block;
@@ -696,24 +433,53 @@ body {
   transition: transform .15s;
 }
 
-.sa-switch input:checked + .sa-switch__slider {
-  background: var(--sa-get);
-}
-
-.sa-switch input:checked + .sa-switch__slider::before {
-  transform: translateX(16px);
-}
+.sa-switch input:checked + .sa-switch__slider { background: var(--sa-get); }
+.sa-switch input:checked + .sa-switch__slider::before { transform: translateX(16px); }
+.sa-switch input:disabled + .sa-switch__slider { opacity: .5; }
 
 .sa-switch input:focus-visible + .sa-switch__slider {
   outline: 2px solid var(--sa-accent);
   outline-offset: 2px;
 }
 
-.sa-switch input:disabled + .sa-switch__slider {
-  opacity: .5;
+.sa-switch-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
-/* Endpoints: the roles (a combo with checkboxes) and the owner */
+/* 11. Lists: ordered by the student (components/ordered-list.js) ------------------------------ */
+.sa-ordered {
+  max-width: 48rem;
+  padding-left: 1.5rem;
+}
+
+.sa-ordered li {
+  margin: 4px 0;
+}
+
+.sa-ordered li:not(.sa-ordered__empty) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 1px solid var(--sa-border);
+  border-radius: 4px;
+  background: #fff;
+}
+
+/* A file or a unit test, by name (red and crossed out if it does not exist) */
+.sa-unit {
+  color: var(--sa-text);
+}
+
+.sa-unit--missing {
+  color: var(--sa-delete);
+  text-decoration: line-through;
+}
+
+/* 12. Endpoints: the roles (a combo with checkboxes) and the owner --------------------------- */
 .sa-roles {
   display: flex;
   align-items: center;
@@ -724,8 +490,8 @@ body {
   max-width: 9rem;
   overflow: hidden;
   padding: 0 8px;
-  text-transform: none;
   text-overflow: ellipsis;
+  text-transform: none;
   white-space: nowrap;
 }
 
@@ -743,57 +509,104 @@ body {
   width: 7.5rem;
 }
 
-.sa-label-custom {
-  background: var(--sa-post);
+/* 13. Tests ----------------------------------------------------------------------------------- */
+.sa-step {
+  margin: 6px 0;
+  padding-left: 10px;
+  border-left: 3px solid var(--sa-border);
 }
 
-/* A form in blocks (fieldsets) */
-.sa-block {
-  margin: 0 0 24px;
-  padding: 16px 20px 4px;
-  border: 1px solid #e5e5e5;
-  border-radius: 6px;
-  background: #fff;
+.sa-step--fail { border-left-color: var(--sa-delete); }
+.sa-step--pass { border-left-color: var(--sa-get); }
+
+.sa-step-select {
+  min-width: 18rem;
 }
 
-.sa-block legend {
-  padding: 0 6px;
-  font-weight: 600;
+/* 14. Overview and statistics ---------------------------------------------------------------- */
+.sa-steps {
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
 }
 
-.sa-radio {
-  display: block;
-  margin-bottom: 8px;
+.sa-steps li {
+  display: grid;
+  grid-template-columns: 2.2rem 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--sa-border);
+  counter-increment: step;
 }
 
-.sa-switch-row {
+.sa-steps li::before {
+  content: counter(step);
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--sa-border);
+  font-weight: 700;
+}
+
+.sa-steps li.sa-done::before {
+  content: "✓";
+  background: var(--sa-ok);
+  color: #fff;
+}
+
+.sa-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+/* 15. Console: a drawer at the bottom with all the activity of the panel ---------------------- */
+.sa-console {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: var(--sa-side-width);
+  z-index: 980;
+  background: var(--sa-console-bg);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.2);
+  color: var(--sa-console-text);
+  font-size: .8rem;
+}
+
+.sa-console__bar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 8px;
+  height: var(--sa-console-height);
+  padding: 0 12px;
 }
 
-.sa-label-small {
-  padding: 0 6px;
-  font-size: .7rem;
-  text-transform: none;
-}
-
-/* Advanced settings: a section that opens */
-.sa-advanced {
-  margin: 32px 0;
-}
-
-.sa-advanced > summary {
-  margin-bottom: 16px;
-  font-size: 1.25rem;
-  font-weight: 500;
+.sa-console__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
   cursor: pointer;
 }
 
-.sa-console__go {
-  margin-left: auto;
-  color: #8fd1ff;
+.sa-console .uk-badge { background: var(--sa-console-badge); }
+.sa-console .uk-badge.sa-console__errors { background: var(--sa-delete); }
+
+.sa-console__last {
+  overflow: hidden;
+  min-width: 0;
+  color: var(--sa-console-soft);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sa-console__filter {
@@ -804,14 +617,125 @@ body {
 }
 
 .sa-console__filter .uk-checkbox {
+  border-color: var(--sa-console-muted);
   background-color: transparent;
-  border-color: #8a96a6;
 }
 
-.sa-table__empty .uk-button {
-  margin-left: 8px;
+.sa-console .uk-button-default {
+  border-color: #4a5668;
+  color: var(--sa-console-text);
 }
 
-#settings h3 {
-  margin-top: 28px;
+.sa-console .uk-button-default:hover {
+  border-color: var(--sa-console-muted);
+  color: #fff;
+}
+
+.sa-console__body {
+  max-height: 40vh;
+  padding: 0 12px 8px;
+  overflow-y: auto;
+  border-top: 1px solid var(--sa-console-line);
+}
+
+.sa-console__body p {
+  margin: 8px 0;
+}
+
+.sa-console__line {
+  border-bottom: 1px solid var(--sa-console-line);
+}
+
+.sa-console__line summary,
+.sa-console__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.sa-console__line summary {
+  cursor: pointer;
+}
+
+.sa-console__summary {
+  padding-left: 1rem;
+}
+
+.sa-console__line--fail {
+  background: rgba(212, 52, 74, 0.15);
+}
+
+.sa-console__time {
+  color: var(--sa-console-muted);
+  font-family: var(--sa-mono);
+}
+
+.sa-console__source {
+  min-width: 8rem;
+  color: var(--sa-console-soft);
+}
+
+.sa-console__line--event .sa-console__source {
+  color: var(--sa-console-info);
+}
+
+.sa-console .sa-route {
+  color: #fff;
+}
+
+.sa-console__status {
+  font-family: var(--sa-mono);
+  font-weight: 700;
+}
+
+.sa-console__status--ok { color: var(--sa-ok); }
+.sa-console__status--expected { color: var(--sa-console-info); }
+.sa-console__status--warn { color: var(--sa-console-warn); }
+.sa-console__status--error { color: var(--sa-console-error); }
+
+.sa-console__message {
+  color: var(--sa-console-message);
+}
+
+.sa-console__go {
+  margin-left: auto;
+  color: var(--sa-console-info);
+}
+
+.sa-console .sa-pre {
+  max-height: 14rem;
+  background: var(--sa-console-pre);
+  color: var(--sa-console-text);
+}
+
+/* 16. Small screens --------------------------------------------------------------------------- */
+@media (max-width: 960px) {
+  .sa-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sa-side {
+    position: static;
+    height: auto;
+  }
+
+  .sa-menu-toggle {
+    display: inline-block;
+    align-self: flex-start;
+  }
+
+  .sa-nav:not(.sa-nav--open),
+  .sa-nav:not(.sa-nav--open) ~ .sa-side__footer {
+    display: none;
+  }
+
+  .sa-main {
+    padding: 16px;
+  }
+
+  .sa-console {
+    left: 0;
+  }
 }

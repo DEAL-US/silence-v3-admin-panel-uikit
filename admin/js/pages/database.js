@@ -1,9 +1,12 @@
-// Database, in tabs: #/database/connection (tested before saving it; testing it also lists
-// the databases), #/database/tables (the tables and views, with their rows), #/database/auth
-// (the users table, login and register) and #/database/users (the users: passwords and "act
-// as"; #/database/users/password/<id> to change one). The tabs that need the database are
-// disabled while the connection fails or is being changed; Users, until the users table is linked.
-import { api, esc, attempt, toast, editing, reloadDatabase } from "../ui.js";
+// Database, in tabs: #/database/connection (tested before saving it; testing it also lists the
+// databases), #/database/tables (the tables and views, with their rows), #/database/auth (the
+// users table) and #/database/users (the users: passwords and "act as"; .../users/password/<id>
+// to change one). The tabs that need the database are disabled while the connection fails or is
+// being changed; Users, until the users table is linked.
+import { html, tabs, options, muted } from "../lib/html.js";
+import { api, quietApi } from "../lib/api.js";
+import { attempt, toast, editing, reloadDatabase } from "../lib/ui.js";
+import { formValues } from "../lib/forms.js";
 import { dataTable } from "../components/table.js";
 import { usersTab, passwordPage } from "./users.js";
 
@@ -32,57 +35,58 @@ function blocked(tab, app, changing) {
 }
 
 function drawTabs(nav, tab, app, changing = false) {
-  nav.innerHTML = Object.entries(TABS).map(([key, label]) => {
-    const why = blocked(key, app, changing);
-    return why
-      ? `<li class="uk-disabled" title="${esc(why)}"><a aria-disabled="true">${label}</a></li>`
-      : `<li class="${key === tab ? "uk-active" : ""}"><a href="#/database/${key}">${label}</a></li>`;
-  }).join("");
+  nav.innerHTML = tabs(Object.entries(TABS).map(([key, label]) =>
+    ({ key, label, href: `#/database/${key}`, disabled: blocked(key, app, changing) })), tab);
 }
 
 export async function render(main, app, params) {
   const [requested, view, id] = params;
-  let tab = TABS[requested] ? requested : "connection";
-  const why = blocked(tab, app, false);
-  if (why) tab = "connection";
-  main.innerHTML = `
+  const why = blocked(requested, app, false);
+  const tab = TABS[requested] && !why ? requested : "connection";
+  main.innerHTML = html`
     <h1>Database</h1>
-    <ul class="uk-tab sa-tabs" id="db-tabs"></ul>
-    ${why && requested && requested !== "connection" ? `<div class="uk-alert uk-alert-warning">${esc(why)}.</div>` : ""}
+    <div id="db-tabs"></div>
+    ${why && requested && requested !== "connection" ? html`<div class="uk-alert uk-alert-warning">${why}.</div>` : ""}
     <div id="tab"></div>`;
   const nav = main.querySelector("#db-tabs");
-  drawTabs(nav, tab, app);
+  const redrawTabs = (changing) => drawTabs(nav, tab, app, changing);
+  redrawTabs();
   const body = main.querySelector("#tab");
-  if (tab === "connection") return connection(body, app, (changing) => drawTabs(nav, tab, app, changing));
+  if (tab === "connection") return connection(body, app, redrawTabs);
   if (tab === "tables") return tables(body, app);
   if (tab === "users") return view === "password" ? passwordPage(body, id) : usersTab(body, app);
-  return users(body, app, () => drawTabs(nav, tab, app));
+  return usersTable(body, app, redrawTabs);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Connection
 ///////////////////////////////////////////////////////////////////////////////
 
-async function connection(body, app, onChange) {
-  const db = (await api("/config")).config.database;
-  body.innerHTML = `
+async function connection(body, app, redrawTabs) {
+  const res = await attempt(() => api("/config"));
+  if (!res) return;
+  const db = res.config.database;
+  const scripts = db.scripts ?? [];
+  const input = (name, label, value, type = "text", required = true) => html`<div class="sa-field">
+    <label class="uk-form-label" for="db-${name}">${label}</label>
+    <input class="uk-input" id="db-${name}" name="${name}" type="${type}" value="${value}" ${required ? "required" : ""}></div>`;
+  body.innerHTML = html`
     <p class="uk-text-muted">Silence uses an existing database: create it and load its data first
-      (for example, with the scripts of the project's <code>sql/</code> folder).</p>
+      (for example, with <em>Reload the database</em>, below).</p>
     <form class="sa-form" id="db-form">
-      <div class="sa-field"><label class="uk-form-label" for="db-host">Host</label><input class="uk-input" id="db-host" name="host" value="${esc(db.host)}" required></div>
-      <div class="sa-field"><label class="uk-form-label" for="db-port">Port</label><input class="uk-input" id="db-port" name="port" type="number" value="${esc(db.port)}" required></div>
-      <div class="sa-field"><label class="uk-form-label" for="db-user">User</label><input class="uk-input" id="db-user" name="user" value="${esc(db.user)}" required></div>
-      <div class="sa-field"><label class="uk-form-label" for="db-password">Password</label><input class="uk-input" id="db-password" name="password" type="password" value="${esc(db.password)}"></div>
+      ${input("host", "Host", db.host)}
+      ${input("port", "Port", db.port, "number")}
+      ${input("user", "User", db.user)}
+      ${input("password", "Password", db.password, "password", false)}
       <div class="sa-field"><label class="uk-form-label" for="db-name">Database</label>
-        <select class="uk-select" id="db-name" name="name"><option value="${esc(db.name)}">${esc(db.name || "(test the connection to list them)")}</option></select></div>
-      <div class="sa-toolbar">
-        <button class="uk-button uk-button-primary" type="submit">Test and save</button>
-      </div>
+        <select class="uk-select" id="db-name" name="name">${options(db.name ? [db.name] : [], db.name,
+          db.name ? undefined : "(test the connection to list them)")}</select></div>
+      <div class="sa-toolbar"><button class="uk-button uk-button-primary" type="submit">Test and save</button></div>
     </form>
-    <div id="db-result"></div>
+    <div id="db-result" role="status"></div>
     <h3>Create it again</h3>
     <p class="uk-text-muted sa-small">Drops the database and creates it again with the scripts of <code>sql/</code>
-      ${(db.scripts ?? []).length ? `(${db.scripts.map((x) => `<code>${esc(x)}</code>`).join(", ")}, in this order)` : "(none chosen yet)"},
+      ${scripts.length ? html`(${scripts.map((x, i) => html`${i ? ", " : ""}<code>${x}</code>`)}, in this order)` : "(none chosen yet)"},
       as <code>silence createdb</code>: for example, to run the tests again from the original data. The scripts and their
       order are set in <a href="#/overview/advanced">Overview → Advanced</a>.</p>
     <button class="uk-button uk-button-default" type="button" id="db-reload">Reload the database</button>`;
@@ -91,58 +95,39 @@ async function connection(body, app, onChange) {
   const form = body.querySelector("#db-form");
   const select = body.querySelector("#db-name");
   const result = body.querySelector("#db-result");
-  const values = () => {
-    const v = Object.fromEntries(new FormData(form));
-    v.port = Number(v.port);
-    return v;
-  };
   const fill = (databases) => {
-    const selected = select.value;
-    select.innerHTML = `<option value="">(choose one)</option>` + databases.map((d) =>
-      `<option ${d === selected ? "selected" : ""}>${esc(d)}</option>`).join("");
+    select.innerHTML = options(databases, select.value, "(choose one)");
   };
   const show = (ok, text) => {
-    result.innerHTML = `<div class="uk-alert uk-alert-${ok ? "success" : "warning"}">${text}</div>`;
+    result.innerHTML = html`<div class="uk-alert uk-alert-${ok ? "success" : "warning"}">${text}</div>`;
   };
 
   // The list of databases, without saving anything (and without going to the console)
   if (db.host && db.user) {
-    try {
-      const res = await api("/database/test", "POST", values(), undefined, { quiet: true });
-      if (res.databases.length) fill(res.databases);
-    } catch {
-      // Silence is not reachable: the console says so
-    }
+    const found = await quietApi("/database/test", "POST", formValues(form)).catch(() => null);
+    if (found?.databases.length) fill(found.databases);
   }
   body.querySelector("#db-reload").addEventListener("click", async (event) => {
-    if (await reloadDatabase(event.currentTarget, db.scripts)) await app.refreshStatus();
+    if (await reloadDatabase(event.currentTarget, scripts)) await app.refreshStatus();
   });
   form.addEventListener("input", () => {
     editing(page, true);
-    onChange(true);
+    redrawTabs(true);
   });
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const res = await attempt(() => api("/database/test", "POST", values()));
-    if (!res) return;
-    if (res.databases.length) fill(res.databases);
-    if (!res.databases.length) {
-      show(false, esc(res.error));
-      return;
-    }
-    if (!values().name) {
-      show(false, `Connected: now choose one of the ${res.databases.length} databases and save.`);
-      return;
-    }
-    if (!res.ok) {
-      show(false, esc(res.error));
-      return;
-    }
-    if (await attempt(() => api("/config/database", "PATCH", values()), "Connected and saved in silence.json")) {
-      show(true, `Connected to <code>${esc(values().name)}</code> and saved in <code>silence.json</code>.`);
+    const values = formValues(form);
+    const test = await attempt(() => api("/database/test", "POST", values));
+    if (!test) return;
+    if (!test.databases.length) return show(false, test.error);
+    fill(test.databases);
+    if (!values.name) return show(false, `Connected: now choose one of the ${test.databases.length} databases and save.`);
+    if (!test.ok) return show(false, test.error);
+    if (await attempt(() => api("/config/database", "PATCH", values), "Connected and saved in silence.json")) {
+      show(true, html`Connected to <code>${values.name}</code> and saved in <code>silence.json</code>.`);
       editing(page, false);
       await app.refreshStatus();
-      onChange(false);
+      redrawTabs(false);
     }
   });
 }
@@ -154,8 +139,8 @@ async function connection(body, app, onChange) {
 async function tables(body, app) {
   const [schema, eps] = await Promise.all([attempt(() => api("/schema")), attempt(() => api("/endpoints"))]);
   if (!schema || !eps) return;
-  const usersTable = app.status.auth.linked ? app.status.auth.table.toLowerCase() : null;
   const same = (a, b) => a.toLowerCase() === b.toLowerCase();
+  const usersTable = app.status.auth.linked ? app.status.auth.table : null;
   const rows = schema.relations.map((r) => ({
     ...r,
     kind: r.view ? "view" : "table",
@@ -165,69 +150,70 @@ async function tables(body, app) {
     endpoints: eps.endpoints.filter((e) => same(e.table, r.name)).length,
   }));
   const tableCount = rows.filter((r) => !r.view).length;
+  const names = (list) => (list.length ? list.map((n, i) => html`${i ? " " : ""}<code>${n}</code>`) : muted());
 
-  body.innerHTML = `
-    <p class="uk-text-muted"><code>${esc(schema.database)}</code>: ${tableCount} tables and ${rows.length - tableCount} views.</p>
+  body.innerHTML = html`
+    <p class="uk-text-muted"><code>${schema.database}</code>: ${tableCount} tables and ${rows.length - tableCount} views.</p>
     <div id="grid"></div>`;
-  const list = (names) => (names.length ? names.map((n) => `<code>${esc(n)}</code>`).join(" ") : `<span class="uk-text-muted">—</span>`);
   dataTable(body.querySelector("#grid"), {
     rows, sort: { key: "name", dir: "asc" }, empty: "The database has no tables.",
     columns: [
-      { key: "name", label: "Name", render: (r) => `<strong>${esc(r.name)}</strong>` +
-          (r.name.toLowerCase() === usersTable ? ` <span class="uk-label sa-label-users" title="The users table">users</span>` : "") },
+      { key: "name", label: "Name", render: (r) => html`<strong>${r.name}</strong>
+          ${usersTable && same(r.name, usersTable) ? html`<span class="uk-label sa-label-users" title="The users table">users</span>` : ""}` },
       { key: "kind", label: "Kind", filter: "select" },
       { key: "rows", label: "Rows", filter: false,
-        render: (r) => (r.rows === null ? `<span class="uk-text-danger" title="It cannot be counted">?</span>` : r.rows) },
+        render: (r) => (r.rows === null ? html`<span class="uk-text-danger" title="It cannot be counted">?</span>` : html`${r.rows}`) },
       { key: "columnCount", label: "Columns", filter: false },
-      { key: "pk", label: "Primary key", value: (r) => r.pk.join(", "), render: (r) => list(r.pk) },
-      { key: "references", label: "References", value: (r) => r.references.join(" "), render: (r) => list(r.references) },
-      { key: "referencedBy", label: "Referenced by", value: (r) => r.referencedBy.join(" "), render: (r) => list(r.referencedBy) },
+      { key: "pk", label: "Primary key", value: (r) => r.pk.join(", "), render: (r) => names(r.pk) },
+      { key: "references", label: "References", value: (r) => r.references.join(" "), render: (r) => names(r.references) },
+      { key: "referencedBy", label: "Referenced by", value: (r) => r.referencedBy.join(" "), render: (r) => names(r.referencedBy) },
       { key: "endpoints", label: "Endpoints", filter: false,
-        render: (r) => (r.endpoints ? `<a href="#/endpoints">${r.endpoints}</a>` : `<span class="uk-text-muted">0</span>`) },
+        render: (r) => (r.endpoints ? html`<a href="#/endpoints">${r.endpoints}</a>` : muted("0")) },
     ],
   });
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Users table: login and register
+// Users table
 ///////////////////////////////////////////////////////////////////////////////
 
-async function users(body, app, onLinked) {
+async function usersTable(body, app, redrawTabs) {
   const [config, schema] = await Promise.all([attempt(() => api("/config")), attempt(() => api("/schema"))]);
   if (!config || !schema) return;
   const auth = config.config.auth;
-  const tables = schema.relations.filter((r) => !r.view);
+  const relations = schema.relations.filter((r) => !r.view);
+  const select = (name, label) => html`<div class="sa-field"><label class="uk-form-label" for="auth-${name}">${label}</label>
+    <select class="uk-select" id="auth-${name}" name="${name}"></select></div>`;
 
-  const options = (cols, selected, empty) => `<option value="">${empty}</option>` +
-    cols.map((c) => `<option ${c === selected ? "selected" : ""}>${esc(c)}</option>`).join("");
-
-  body.innerHTML = `
+  body.innerHTML = html`
     <form id="auth-form">
-        <p class="uk-text-muted">The table with the users of your application: it enables the login and the register,
-          sessions, roles (a column of the table) and owners.</p>
-        <div class="sa-form">
-          <div class="sa-field"><label class="uk-form-label" for="auth-table">Table</label>
-            <select class="uk-select" id="auth-table" name="table">${options(tables.map((t) => t.name), auth.table, "(not linked)")}</select></div>
-          <div class="sa-field"><label class="uk-form-label" for="auth-identifier">Identifier</label><select class="uk-select" id="auth-identifier" name="identifier"></select></div>
-          <div class="sa-field"><label class="uk-form-label" for="auth-password">Password</label><select class="uk-select" id="auth-password" name="password"></select></div>
-          <div class="sa-field"><label class="uk-form-label" for="auth-role">Role (optional)</label><select class="uk-select" id="auth-role" name="role"></select></div>
-          <div class="sa-field"><label class="uk-form-label" for="auth-active">Active (optional)</label><select class="uk-select" id="auth-active" name="active"></select></div>
-        </div>
+      <p class="uk-text-muted">The table with the users of your application: it enables the login and the register,
+        sessions, roles (a column of the table) and owners. Login, register and passwords are in
+        <a href="#/overview/login">Overview</a>.</p>
+      <div class="sa-form">
+        <div class="sa-field"><label class="uk-form-label" for="auth-table">Table</label>
+          <select class="uk-select" id="auth-table" name="table">${options(relations.map((t) => t.name), auth.table, "(not linked)")}</select></div>
+        ${select("identifier", "Identifier")}
+        ${select("password", "Password")}
+        ${select("role", "Role (optional)")}
+        ${select("active", "Active (optional)")}
+      </div>
       <div class="sa-toolbar"><button class="uk-button uk-button-primary" type="submit">Save</button></div>
     </form>`;
 
   const page = body.closest("#page");
   const form = body.querySelector("#auth-form");
   const tableSelect = form.querySelector("#auth-table");
+  // The columns of the chosen table, with a guess of each one (or what silence.json says)
+  const GUESSES = { identifier: ["email", "username", "login"], password: ["password", "pass", "pwd"],
+    role: ["role", "rol", "position", "type"], active: ["active", "isactive", "is_active", "enabled"] };
   const fillColumns = () => {
-    const table = tables.find((t) => t.name === tableSelect.value);
+    const table = relations.find((t) => t.name === tableSelect.value);
     const cols = table ? table.columns.map((c) => c.name) : [];
-    const guess = (names) => cols.find((c) => names.includes(c.toLowerCase())) ?? "";
-    const pick = (field, names) => (table && table.name === auth.table && auth[field]) ? auth[field] : guess(names);
-    form.querySelector("#auth-identifier").innerHTML = options(cols, pick("identifier", ["email", "username", "login"]), "—");
-    form.querySelector("#auth-password").innerHTML = options(cols, pick("password", ["password", "pass", "pwd"]), "—");
-    form.querySelector("#auth-role").innerHTML = options(cols, pick("role", ["role", "rol", "position", "type"]), "(none)");
-    form.querySelector("#auth-active").innerHTML = options(cols, pick("active", ["active", "isactive", "is_active", "enabled"]), "(none)");
+    for (const [field, names] of Object.entries(GUESSES)) {
+      const chosen = table && table.name === auth.table && auth[field] ? auth[field] : cols.find((c) => names.includes(c.toLowerCase()));
+      form.querySelector(`#auth-${field}`).innerHTML = options(cols, chosen, field === "role" || field === "active" ? "(none)" : "—");
+    }
   };
   tableSelect.addEventListener("change", fillColumns);
   fillColumns();
@@ -235,18 +221,16 @@ async function users(body, app, onLinked) {
   form.addEventListener("input", () => editing(page, true));
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const v = Object.fromEntries(new FormData(form));
+    const v = formValues(form);
     if (v.table && (!v.identifier || !v.password)) {
       toast("Choose the identifier and password columns", "error");
       return;
     }
-    if (!v.table) {
-      v.identifier = v.password = v.role = v.active = "";
-    }
+    if (!v.table) Object.assign(v, { identifier: "", password: "", role: "", active: "" });
     if (await attempt(() => api("/config/auth", "PATCH", v), "Saved in silence.json")) {
       editing(page, false);
       await app.refreshStatus();
-      onLinked();  // The Users tab is enabled (or disabled) as the table is linked (or not)
+      redrawTabs();  // The Users tab is enabled (or disabled) as the table is linked (or not)
     }
   });
 }
