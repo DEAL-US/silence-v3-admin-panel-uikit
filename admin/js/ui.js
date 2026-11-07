@@ -138,11 +138,14 @@ export const session = {
 };
 
 /** Sends a request to the project's API, as the current session (if any). */
+// How to call the student's API, as the admin API says in GET / (studentApi)
+export const studentApi = { prefix: "/api", sessionHeader: "Token" };
+
 export async function callApi(prefix, methodName, path, body) {
   const options = { method: methodName, headers: {} };
   const current = session.get();
   if (current) {
-    options.headers.Token = current.token;
+    options.headers[studentApi.sessionHeader] = current.token;
   }
   if (body !== undefined && body !== null && methodName !== "GET" && methodName !== "DELETE") {
     options.headers["Content-Type"] = "application/json";

@@ -1,5 +1,5 @@
 // Admin panel of Silence: a single page with one view per hash (#/endpoints...).
-import { api, esc, session, dialogOpen } from "./ui.js";
+import { api, esc, session, dialogOpen, studentApi } from "./ui.js";
 import * as overview from "./pages/overview.js";
 import * as database from "./pages/database.js";
 import * as users from "./pages/users.js";
@@ -107,6 +107,7 @@ async function checkCompatibility() {
   try {
     panelVersion = (await (await fetch("panel.json")).json()).version;
     app.info = await api("/");
+    Object.assign(studentApi, app.info.studentApi ?? {});
   } catch {
     return;
   }
