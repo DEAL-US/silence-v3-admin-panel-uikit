@@ -3,9 +3,8 @@
 // as [{label, href}]) and, for the second-level pages (edit, new, try...), parent(params): where
 // the Back button goes. Optionally, leave(): when another page is shown.
 import { html } from "./lib/html.js";
-import { api, quietApi, activity } from "./lib/api.js";
+import { api, quietApi } from "./lib/api.js";
 import { session, studentApi } from "./lib/student-api.js";
-import { editing } from "./lib/ui.js";
 import { initConsole, logEvent } from "./components/console.js";
 import * as overview from "./pages/overview.js";
 import * as database from "./pages/database.js";
@@ -15,15 +14,11 @@ import * as stats from "./pages/stats.js";
 
 const routes = { "": overview, overview, database, endpoints, tests, stats };
 
-// How often the panel asks Silence whether the project changed outside it (an editor, git...)
-const WATCH_MS = 3000;
-// How long after an action of the panel a change of the project is taken as its own
-const OWN_CHANGE_MS = 4000;
+// The panel does not watch the project: it reads its state when a page is shown and after each
+// action. A change made outside it (an editor, git...) is seen when the page is shown again.
 
 let current = null;
 let panel = { version: "?", api: 1 };  // panel.json
-let lastRevision = null;
-let rendering = false;
 
 const $ = (selector) => document.querySelector(selector);
 const capitalize = (text) => text[0].toUpperCase() + text.slice(1);
@@ -32,9 +27,8 @@ export const app = {
   info: null,
   status: null,
   lost: false,
-  /** The state of the project (GET /status). sync: the page already shows it (e.g., after
-   *  saving), so a new revision is not a change to show again */
-  async refreshStatus({ sync = true } = {}) {
+  /** The state of the project (GET /status), for the sidebar and the pages */
+  async refreshStatus() {
     let s;
     try {
       s = await quietApi("/status");
@@ -47,7 +41,6 @@ export const app = {
     this.lost = false;
     reportChanges(this.status, s);
     this.status = s;
-    if (sync) lastRevision = s.revision;
     drawSidebar(s);
     return s;
   },
@@ -83,9 +76,6 @@ function reportChanges(prev, s) {
         { ok: !s.database.error });
     }
     if (users(prev) !== users(s)) logEvent("Users", capitalize(users(s)));
-    if (s.revision !== prev.revision && Date.now() - activity.last > OWN_CHANGE_MS) {
-      logEvent("Project", `Files changed outside the panel and reloaded: ${s.endpoints.count} endpoints, ${s.tests.count} tests`);
-    }
   }
   for (const [kind, label] of [["config", "silence.json"], ["endpoints", "Endpoints"], ["tests", "Tests"]]) {
     const before = prev?.errors[kind] ?? [];
@@ -104,23 +94,6 @@ function showSession() {
   box.innerHTML = html`Trying the API as <strong>${who.label}</strong>
     <button class="uk-button uk-button-default uk-button-small" type="button" id="end-session">End</button>`;
   box.querySelector("#end-session").addEventListener("click", () => session.set(null));
-}
-
-/** The project's files changed (panel, editor, git...): show them again, unless the user is editing. */
-async function watch() {
-  const s = await app.refreshStatus({ sync: false });
-  if (!s || app.lost) return;
-  // A new revision right after an action of the panel is its own (the page shows it already)
-  if (Date.now() - activity.last < OWN_CHANGE_MS) {
-    lastRevision = s.revision;
-    return;
-  }
-  if (lastRevision !== null && s.revision !== lastRevision && !rendering && !editing($("#page"))) {
-    lastRevision = s.revision;
-    await render();
-    return;
-  }
-  lastRevision = s.revision;
 }
 
 function drawTopbar(crumbs, parent) {
@@ -148,7 +121,6 @@ function markNav(name) {
 }
 
 async function render() {
-  rendering = true;
   const parts = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(decodeURIComponent);
   const name = parts[0] ?? "";
   const params = parts.slice(1);
@@ -158,14 +130,9 @@ async function render() {
   current = page;
   const main = $("#page");
   main.innerHTML = "";
-  editing(main, false);
   drawTopbar(page.crumbs ? page.crumbs(params) : [], page.parent ? page.parent(params) : null);
   await app.refreshStatus();
-  try {
-    await page.render(main, app, params);
-  } finally {
-    rendering = false;
-  }
+  await page.render(main, app, params);
 }
 
 /** The versions: of the panel (panel.json) and of Silence, and whether they understand each other */
@@ -191,7 +158,6 @@ async function start() {
   initConsole();
   await checkCompatibility();
   await render();
-  setInterval(watch, WATCH_MS);
 }
 
 document.addEventListener("DOMContentLoaded", start);

@@ -3,7 +3,7 @@
 import { html, link, methodBadge, statusClass, json, options } from "../lib/html.js";
 import { api, quietApi } from "../lib/api.js";
 import { session, callApi, peekApi, studentApi } from "../lib/student-api.js";
-import { attempt, toast, editing } from "../lib/ui.js";
+import { attempt, toast } from "../lib/ui.js";
 
 /** Who can call an endpoint, in words */
 function access(e) {
@@ -41,7 +41,6 @@ export async function render(main, app, file, name) {
     main.innerHTML = html`<div class="uk-alert uk-alert-danger">There is no endpoint ${name} in ${file}.json.</div>`;
     return;
   }
-  editing(main, true);  // Do not re-render (and lose the response) when the files change
   const prefix = studentApi.prefix;
   const params = [...e.route.matchAll(/\$(\w+)/g)].map((m) => m[1]);
   const bodyParams = e.method === "POST" || e.method === "PUT" ? e.request_body_params ?? [] : [];

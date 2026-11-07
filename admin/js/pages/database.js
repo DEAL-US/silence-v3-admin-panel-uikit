@@ -5,7 +5,7 @@
 // being changed; Users, until the users table is linked.
 import { html, tabs, options, muted } from "../lib/html.js";
 import { api, quietApi } from "../lib/api.js";
-import { attempt, toast, editing, reloadDatabase } from "../lib/ui.js";
+import { attempt, toast, reloadDatabase } from "../lib/ui.js";
 import { formValues } from "../lib/forms.js";
 import { dataTable } from "../components/table.js";
 import { usersTab, passwordPage } from "./users.js";
@@ -91,7 +91,6 @@ async function connection(body, app, redrawTabs) {
       order are set in <a href="#/overview/advanced">Overview → Advanced</a>.</p>
     <button class="uk-button uk-button-default" type="button" id="db-reload">Reload the database</button>`;
 
-  const page = body.closest("#page");
   const form = body.querySelector("#db-form");
   const select = body.querySelector("#db-name");
   const result = body.querySelector("#db-result");
@@ -111,7 +110,6 @@ async function connection(body, app, redrawTabs) {
     if (await reloadDatabase(event.currentTarget, scripts)) await app.refreshStatus();
   });
   form.addEventListener("input", () => {
-    editing(page, true);
     redrawTabs(true);
   });
   form.addEventListener("submit", async (event) => {
@@ -125,7 +123,6 @@ async function connection(body, app, redrawTabs) {
     if (!test.ok) return show(false, test.error);
     if (await attempt(() => api("/config/database", "PATCH", values), "Connected and saved in silence.json")) {
       show(true, html`Connected to <code>${values.name}</code> and saved in <code>silence.json</code>.`);
-      editing(page, false);
       await app.refreshStatus();
       redrawTabs(false);
     }
@@ -201,7 +198,6 @@ async function usersTable(body, app, redrawTabs) {
       <div class="sa-toolbar"><button class="uk-button uk-button-primary" type="submit">Save</button></div>
     </form>`;
 
-  const page = body.closest("#page");
   const form = body.querySelector("#auth-form");
   const tableSelect = form.querySelector("#auth-table");
   // The columns of the chosen table, with a guess of each one (or what silence.json says)
@@ -218,7 +214,6 @@ async function usersTable(body, app, redrawTabs) {
   tableSelect.addEventListener("change", fillColumns);
   fillColumns();
 
-  form.addEventListener("input", () => editing(page, true));
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const v = formValues(form);
@@ -228,7 +223,6 @@ async function usersTable(body, app, redrawTabs) {
     }
     if (!v.table) Object.assign(v, { identifier: "", password: "", role: "", active: "" });
     if (await attempt(() => api("/config/auth", "PATCH", v), "Saved in silence.json")) {
-      editing(page, false);
       await app.refreshStatus();
       redrawTabs();  // The Users tab is enabled (or disabled) as the table is linked (or not)
     }

@@ -1,5 +1,5 @@
-// Behaviour shared by the pages: notifications, confirmations without modal windows, the
-// "being edited" mark and the reload of the database. UIkit (global) gives the notifications.
+// Behaviour shared by the pages: notifications, confirmations without modal windows and the
+// reload of the database. UIkit (global) gives the notifications.
 /* global UIkit */
 import { api } from "./api.js";
 import { esc } from "./html.js";
@@ -49,14 +49,6 @@ export function needsConfirm(button, label = "Click again to confirm") {
   button.classList.add("sa-armed");
   setTimeout(() => button.dataset.armed && restore(), 4000);
   return false;
-}
-
-/** Whether the page has unsaved changes (then it is not re-rendered when the files change). */
-export function editing(main, value) {
-  if (value === undefined) return main.dataset.editing === "1";
-  if (value) main.dataset.editing = "1";
-  else delete main.dataset.editing;
-  return value;
 }
 
 /** Creates the database again with the scripts of silence.json (database.scripts), after a

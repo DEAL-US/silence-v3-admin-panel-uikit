@@ -2,7 +2,7 @@
 // and run step by step against the student's API (they change the database). Views (after
 // #/tests/composite): the grid, /new and /edit/<name>.
 import { html, link, iconButton, options } from "../lib/html.js";
-import { toast, needsConfirm, editing } from "../lib/ui.js";
+import { toast, needsConfirm } from "../lib/ui.js";
 import { runComposite } from "../lib/runner.js";
 import { dataTable } from "../components/table.js";
 import { orderedList } from "../components/ordered-list.js";
@@ -120,11 +120,9 @@ async function editor(main, name) {
     empty: "No steps yet: add unit tests below.",
     render: (s) => html`${unitName(s, unitNames.includes(s))}
       ${unitNames.includes(s) ? "" : html`<span class="uk-text-danger sa-small">(it does not exist)</span>`}`,
-    onChange: () => editing(main, true),
   });
   main.querySelector("#c-add").addEventListener("click", () => steps.add(main.querySelector("#c-add-name").value));
   const form = main.querySelector("#composite-form");
-  form.addEventListener("input", () => editing(main, true));
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const { name: newName, description } = Object.fromEntries(new FormData(form));
@@ -136,7 +134,6 @@ async function editor(main, name) {
     others.splice(original ? all.composites.indexOf(original) : others.length, 0, test);
     if (await saveComposites(others, all.compositeEtag)) {
       toast("Saved in admin/data/composite_tests.json", "success");
-      editing(main, false);
       location.hash = "#/tests/composite";
     }
   });

@@ -5,14 +5,10 @@ import { describe, whereIs } from "./activity.js";
 
 export const API = "/_silence/v1";
 
-/** When the panel last changed something (so as not to report its own changes as external) */
-export const activity = { last: 0 };
-
 /** Calls the admin API and returns its JSON, or throws an Error with its message.
  *  etag: the version of the file that is changed (If-Match), so as not to overwrite changes
  *  made meanwhile in another place (412). quiet: nothing to the console. */
 export async function api(path, method = "GET", body = undefined, etag = undefined, { quiet = false } = {}) {
-  if (method !== "GET") activity.last = Date.now();
   const options = { method, headers: {} };
   if (etag !== undefined) options.headers["If-Match"] = etag;
   if (body !== undefined) {

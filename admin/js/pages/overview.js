@@ -4,7 +4,7 @@
 // connection and the users table are in Database. Only the values that change are saved.
 import { html, tabs, switchRow, alertList } from "../lib/html.js";
 import { api } from "../lib/api.js";
-import { attempt, editing, toast } from "../lib/ui.js";
+import { attempt, toast } from "../lib/ui.js";
 import { formValues, changes } from "../lib/forms.js";
 import { orderedList } from "../components/ordered-list.js";
 
@@ -174,7 +174,6 @@ function scriptsList(form, app) {
       ${absent.has(s) ? html`<span class="uk-text-danger sa-small">(it is not in sql/)</span>` : ""}`,
     onChange: (items) => {
       field.value = JSON.stringify(items);
-      form.dispatchEvent(new Event("input"));  // As if typed: the page is being edited
     },
   });
   form.querySelector("#scripts-file").addEventListener("change", (event) => {
@@ -186,17 +185,14 @@ function scriptsList(form, app) {
 }
 
 function settingsForm(form, app) {
-  const page = form.closest("#page");
   scriptsList(form, app);
   let saved = formValues(form, { bySection: true });
-  form.addEventListener("input", () => editing(page, true));
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const current = formValues(form, { bySection: true });
     const changed = changes(saved, current);
     if (!Object.keys(changed).length) {
       toast("Nothing has changed", "info");
-      editing(page, false);
       return;
     }
     let restart = false;
@@ -207,7 +203,6 @@ function settingsForm(form, app) {
     }
     toast("Saved in silence.json", "success");
     saved = current;
-    editing(page, false);
     form.querySelector(".sa-restart")?.remove();
     if (restart) {
       form.insertAdjacentHTML("beforeend", String(html`<div class="uk-alert uk-alert-warning sa-restart">Start Silence

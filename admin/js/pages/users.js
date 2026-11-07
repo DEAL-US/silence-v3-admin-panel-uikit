@@ -3,7 +3,7 @@
 import { html, link, iconButton } from "../lib/html.js";
 import { api } from "../lib/api.js";
 import { session } from "../lib/student-api.js";
-import { attempt, toast, editing } from "../lib/ui.js";
+import { attempt, toast } from "../lib/ui.js";
 import { dataTable } from "../components/table.js";
 
 const PASSWORDS = {
@@ -62,14 +62,11 @@ export function passwordPage(main, id) {
         <a class="uk-button uk-button-default" href="#/database/users">Cancel</a>
       </div>
     </form>`;
-  const page = main.closest("#page") ?? main;
   const form = main.querySelector("#password-form");
-  form.addEventListener("input", () => editing(page, true));
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const { password } = Object.fromEntries(new FormData(form));
     if (await attempt(() => api(`/users/${encodeURIComponent(id)}/password`, "PUT", { password }), "Password saved")) {
-      editing(page, false);
       location.hash = "#/database/users";
     }
   });

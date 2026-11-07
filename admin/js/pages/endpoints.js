@@ -3,7 +3,7 @@
 // #/endpoints/edit/<file>/<name> and #/endpoints/try/<file>/<name> (endpoint-try.js).
 import { html, link, iconButton, methodBadge, sourceBadge, switchControl, muted, alertList } from "../lib/html.js";
 import { api, quietApi } from "../lib/api.js";
-import { attempt, toast, needsConfirm, editing } from "../lib/ui.js";
+import { attempt, toast, needsConfirm } from "../lib/ui.js";
 import { formValues } from "../lib/forms.js";
 import { dataTable } from "../components/table.js";
 import * as tryPage from "./endpoint-try.js";
@@ -283,7 +283,6 @@ async function editPage(main, app, file, name) {
     </form>`;
 
   const form = main.querySelector("#edit-form");
-  form.addEventListener("input", () => editing(main, true));
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const v = formValues(form);
@@ -303,7 +302,6 @@ async function editPage(main, app, file, name) {
       const etag = ep.file === v.file ? saved.etag : data.files[ep.file] ?? "";
       await attempt(() => api(`/endpoints/${ep.file}/${ep.name}`, "DELETE", undefined, etag));
     }
-    editing(main, false);
     await app.refreshStatus();
     location.hash = "#/endpoints";
   });
