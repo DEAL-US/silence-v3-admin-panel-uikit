@@ -1,6 +1,10 @@
 // Database: the connection (tested before saving it) and the users table.
 import { api, esc, attempt, toast } from "../ui.js";
 
+export function crumbs() {
+  return [{ label: "Database" }];
+}
+
 export async function render(main, app) {
   const config = (await api("/config")).config;
   const db = config.database;

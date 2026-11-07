@@ -33,20 +33,12 @@
         <p class="sa-version" id="version"></p>
       </div>
     </aside>
-    <main class="sa-main" id="page" aria-live="polite"></main>
+    <main class="sa-main">
+      <nav class="sa-topbar" id="topbar" aria-label="Breadcrumb"></nav>
+      <div id="page" aria-live="polite"></div>
+    </main>
   </div>
+  <div class="sa-console" id="console"></div>
 
-  <div id="dialog" uk-modal="bg-close: false; stack: true">
-    <div class="uk-modal-dialog sa-dialog">
-      <form id="dialog-form">
-        <div class="uk-modal-header"><h2 class="uk-modal-title" id="dialog-title"></h2></div>
-        <div class="uk-modal-body" id="dialog-body"></div>
-        <div class="uk-modal-footer uk-text-right">
-          <button class="uk-button uk-button-default uk-modal-close" type="button">Cancel</button>
-          <button class="uk-button uk-button-primary" type="submit" id="dialog-ok">OK</button>
-        </div>
-      </form>
-    </div>
-  </div>
 </body>
 </html>

@@ -1,5 +1,9 @@
-// Admin panel of Silence: a single page with one view per hash (#/endpoints...).
-import { api, esc, session, dialogOpen, studentApi } from "./ui.js";
+// Admin panel of Silence: a single page with one view per hash (#/endpoints/custom...).
+// Each page exports render(main, app, params), crumbs(params) (the breadcrumb after
+// "Overview", as [{label, href}]) and, for the second-level pages (edit, new, try...),
+// parent(params): where the Back button goes. First-level pages (and their tabs) have none.
+import { api, esc, session, editing, studentApi } from "./ui.js";
+import { initConsole } from "./components/console.js";
 import * as overview from "./pages/overview.js";
 import * as database from "./pages/database.js";
 import * as users from "./pages/users.js";
@@ -25,6 +29,11 @@ let panelVersion = "";
 export const app = {
   info: null,
   status: null,
+  /** Changes where the Back button goes, once the page knows it (e.g., the tab of an endpoint) */
+  setBack(href) {
+    const back = document.querySelector(".sa-back");
+    if (back) back.href = href;
+  },
   async refreshStatus() {
     try {
       this.status = await api("/status");
@@ -63,7 +72,7 @@ async function watchRevision() {
   try {
     const s = await api("/status");
     if (lastRevision !== null && s.revision !== lastRevision && !rendering
-        && !dialogOpen() && !document.querySelector("#try-form")) {
+        && !editing(document.querySelector("#page"))) {
       lastRevision = s.revision;
       await render();
       return;
@@ -74,9 +83,23 @@ async function watchRevision() {
   }
 }
 
+function drawTopbar(crumbs, parent) {
+  const all = [{ label: "Overview", href: "#/" }, ...crumbs];
+  document.querySelector("#topbar").innerHTML = `
+    ${parent ? `<a class="uk-button uk-button-default uk-button-small sa-back" href="${esc(parent)}">
+      <span uk-icon="icon: arrow-left; ratio: .8"></span> Back</a>` : ""}
+    <ul class="uk-breadcrumb sa-crumbs">
+      ${all.map((c, i) => i === all.length - 1
+        ? `<li><span aria-current="page">${esc(c.label)}</span></li>`
+        : `<li><a href="${esc(c.href)}">${esc(c.label)}</a></li>`).join("")}
+    </ul>`;
+}
+
 async function render() {
   rendering = true;
-  const name = location.hash.replace(/^#\/?/, "").split("/")[0];
+  const parts = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(decodeURIComponent);
+  const name = parts[0] ?? "";
+  const params = parts.slice(1);
   const page = routes[name] ?? overview;
   for (const link of document.querySelectorAll(".sa-nav a")) {
     const target = link.getAttribute("href").replace(/^#\/?/, "");
@@ -94,10 +117,12 @@ async function render() {
   current = page;
   const main = document.querySelector("#page");
   main.innerHTML = "";
+  editing(main, false);
+  drawTopbar(page.crumbs ? page.crumbs(params) : [], page.parent ? page.parent(params) : null);
   await app.refreshStatus();
   lastRevision = app.status?.revision ?? lastRevision;
   try {
-    await page.render(main, app);
+    await page.render(main, app, params);
   } finally {
     rendering = false;
   }
@@ -122,6 +147,7 @@ async function main() {
   document.addEventListener("sa-session", showSession);
   window.addEventListener("hashchange", render);
   showSession();
+  initConsole();
   await checkCompatibility();
   await render();
   setInterval(watchRevision, 3000);

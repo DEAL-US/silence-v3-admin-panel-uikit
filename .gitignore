@@ -1,2 +1,4 @@
 __pycache__/
 .venv/
+# What the panel saves when it is developed here (composite tests...): never in the template
+admin/data/

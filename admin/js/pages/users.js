@@ -1,5 +1,7 @@
 // Users: the rows of the linked users table, their passwords and "act as".
-import { api, esc, attempt, dialog, session, toast } from "../ui.js";
+// Views: #/users and #/users/password/<id> (or #/users/password/all).
+import { api, esc, attempt, session, toast, editing, link, iconButton } from "../ui.js";
+import { dataTable } from "../components/table.js";
 
 const STATUS = {
   argon2: `<span class="uk-label uk-label-success">argon2</span>`,
@@ -7,75 +9,94 @@ const STATUS = {
   unsupported: `<span class="uk-label uk-label-danger">unsupported hash</span>`,
 };
 
-export async function render(main, app) {
-  main.innerHTML = `<h1>Users</h1><div id="users-body"></div>`;
-  const body = main.querySelector("#users-body");
-  if (!app.status.auth.linked) {
-    body.innerHTML = `<div class="uk-alert uk-alert-warning">Link the users table first, in <a href="#/database">Database</a>.</div>`;
-    return;
-  }
-
-  const load = async () => {
-    const res = await attempt(() => api("/users"));
-    if (!res) return;
-    const mode = res.passwordMode;
-    const wrong = res.users.filter((u) => u.password === "unsupported" || (mode === "argon2" && u.password === "plain"));
-    body.innerHTML = `
-      ${wrong.length ? `<div class="uk-alert uk-alert-warning">${wrong.length} users cannot log in: their stored password is
-        ${mode === "argon2" ? "not an argon2 hash" : "a hash that Silence does not support"}. Set their password again.</div>` : ""}
-      <div class="sa-toolbar">
-        <span class="uk-text-muted">Passwords are stored ${mode === "argon2" ? "encrypted (argon2)" : "as plain text"}.</span>
-        <span class="sa-toolbar__spacer"></span>
-        <button class="uk-button uk-button-default" type="button" id="all-passwords">Same password for everybody</button>
-      </div>
-      <div class="uk-overflow-auto"><table class="uk-table uk-table-divider uk-table-small uk-table-hover sa-table">
-        <thead><tr><th>${esc(res.pk)}</th><th>${esc(app.status.auth.identifier)}</th>
-          ${app.status.auth.role ? `<th>${esc(app.status.auth.role)}</th>` : ""}
-          ${app.status.auth.active ? `<th>${esc(app.status.auth.active)}</th>` : ""}
-          <th>Password</th><th></th></tr></thead>
-        <tbody>${res.users.map((u) => `
-          <tr>
-            <td>${esc(u.id)}</td><td>${esc(u.identifier)}</td>
-            ${app.status.auth.role ? `<td>${esc(u.role ?? "—")}</td>` : ""}
-            ${app.status.auth.active ? `<td>${u.active ? "yes" : "no"}</td>` : ""}
-            <td>${STATUS[u.password]}</td>
-            <td class="sa-actions">
-              <button class="uk-button uk-button-default uk-button-small" data-password="${esc(u.id)}" type="button">Set password</button>
-              <button class="uk-button uk-button-primary uk-button-small" data-act="${esc(u.id)}" data-label="${esc(u.identifier)}" type="button">Act as</button>
-            </td>
-          </tr>`).join("")}</tbody>
-      </table></div>
-      <p class="uk-text-muted sa-small">«Act as» opens a session for that user without its password: the endpoints that you
-        try in this panel are sent with its token.</p>`;
-
-    body.querySelector("#all-passwords").addEventListener("click", async () => {
-      const v = await dialog("Same password for everybody", passwordField(), "Save");
-      if (v && await attempt(() => api("/users/password", "PUT", v), "Passwords saved")) {
-        load();
-      }
-    });
-    for (const button of body.querySelectorAll("[data-password]")) {
-      button.addEventListener("click", async () => {
-        const v = await dialog(`Password of user ${button.dataset.password}`, passwordField(), "Save");
-        if (v && await attempt(() => api(`/users/${encodeURIComponent(button.dataset.password)}/password`, "PUT", v), "Password saved")) {
-          load();
-        }
-      });
-    }
-    for (const button of body.querySelectorAll("[data-act]")) {
-      button.addEventListener("click", async () => {
-        const res = await attempt(() => api(`/users/${encodeURIComponent(button.dataset.act)}/session`, "POST"));
-        if (res) {
-          session.set({ token: res.sessionToken, label: button.dataset.label });
-          toast(`Acting as ${button.dataset.label}`, "success");
-        }
-      });
-    }
-  };
-  load();
+export function crumbs(params) {
+  const [view, id] = params;
+  const base = [{ label: "Users", href: "#/users" }];
+  if (view === "password") return [...base, { label: id === "all" ? "Password of everybody" : `Password of user ${id}` }];
+  return base;
 }
 
-function passwordField() {
-  return `<div class="sa-field"><label class="uk-form-label" for="new-password">New password</label>
-    <input class="uk-input" id="new-password" name="password" required autocomplete="new-password"></div>`;
+export function parent(params) {
+  return params[0] === "password" ? "#/users" : null;
+}
+
+export async function render(main, app, params) {
+  if (!app.status.auth.linked) {
+    main.innerHTML = `<h1>Users</h1><div class="uk-alert uk-alert-warning">Link the users table first, in <a href="#/database">Database</a>.</div>`;
+    return;
+  }
+  const [view, id] = params;
+  if (view === "password") return passwordPage(main, id);
+  return listPage(main, app);
+}
+
+async function listPage(main, app) {
+  const res = await attempt(() => api("/users"));
+  if (!res) return;
+  const auth = app.status.auth;
+  const mode = res.passwordMode;
+  const wrong = res.users.filter((u) => u.password === "unsupported" || (mode === "argon2" && u.password === "plain"));
+
+  main.innerHTML = `
+    <h1>Users</h1>
+    ${wrong.length ? `<div class="uk-alert uk-alert-warning">${wrong.length} users cannot log in: their stored password is
+      ${mode === "argon2" ? "not an argon2 hash" : "a hash that Silence does not support"}. Set their password again.</div>` : ""}
+    <div class="sa-toolbar">
+      <span class="uk-text-muted">Table <code>${esc(auth.table)}</code>; passwords stored ${mode === "argon2" ? "encrypted (argon2)" : "as plain text"}.</span>
+      <span class="sa-toolbar__spacer"></span>
+      <a class="uk-button uk-button-default" href="#/users/password/all">Same password for everybody</a>
+    </div>
+    <div id="grid"></div>
+    <p class="uk-text-muted sa-small">«Act as» opens a session for that user without its password: the endpoints that you
+      try in this panel are sent with its token.</p>`;
+
+  const columns = [
+    { key: "actions", label: "", filter: false, sortable: false, className: "sa-actions", render: (u) =>
+      iconButton("lock", "Set password", { href: link("users", "password", u.id) }) +
+      iconButton("user", "Act as this user (try the endpoints with its session)", { action: "act" }) },
+    { key: "id", label: res.pk, value: (u) => u.id },
+    { key: "identifier", label: auth.identifier },
+  ];
+  if (auth.role) columns.push({ key: "role", label: auth.role, filter: "select", value: (u) => u.role ?? "" });
+  if (auth.active) columns.push({ key: "active", label: auth.active, filter: "select", value: (u) => (u.active ? "yes" : "no") });
+  columns.push(
+    { key: "password", label: "Password", filter: "select", render: (u) => STATUS[u.password] },
+  );
+
+  dataTable(main.querySelector("#grid"), {
+    columns, rows: res.users, sort: { key: "id", dir: "asc" }, empty: "The users table is empty.",
+    onAction: async (action, u) => {
+      if (action !== "act") return;
+      const s = await attempt(() => api(`/users/${encodeURIComponent(u.id)}/session`, "POST"));
+      if (s) {
+        session.set({ token: s.sessionToken, label: u.identifier });
+        toast(`Acting as ${u.identifier}`, "success");
+      }
+    },
+  });
+}
+
+async function passwordPage(main, id) {
+  const all = id === "all";
+  main.innerHTML = `
+    <h1>${all ? "Same password for everybody" : `Password of user ${esc(id)}`}</h1>
+    <form id="password-form" class="sa-form">
+      <div class="sa-field"><label class="uk-form-label" for="new-password">New password</label>
+        <input class="uk-input" id="new-password" name="password" required autocomplete="new-password"></div>
+      <div class="sa-toolbar">
+        <button class="uk-button uk-button-primary" type="submit">Save</button>
+        <a class="uk-button uk-button-default" href="#/users">Cancel</a>
+      </div>
+    </form>`;
+  const form = main.querySelector("#password-form");
+  form.addEventListener("input", () => editing(main, true));
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const password = form.querySelector("#new-password").value;
+    const path = all ? "/users/password" : `/users/${encodeURIComponent(id)}/password`;
+    if (await attempt(() => api(path, "PUT", { password }), all ? "Passwords saved" : "Password saved")) {
+      editing(main, false);
+      location.hash = "#/users";
+    }
+  });
 }
