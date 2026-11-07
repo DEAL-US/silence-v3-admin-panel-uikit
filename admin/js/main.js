@@ -6,7 +6,6 @@ import { api, esc, session, editing, studentApi, activity } from "./ui.js";
 import { initConsole, logEvent } from "./components/console.js";
 import * as overview from "./pages/overview.js";
 import * as database from "./pages/database.js";
-import * as users from "./pages/users.js";
 import * as endpoints from "./pages/endpoints.js";
 import * as tests from "./pages/tests.js";
 import * as stats from "./pages/stats.js";
@@ -14,7 +13,6 @@ import * as stats from "./pages/stats.js";
 const routes = {
   "": overview,
   database,
-  users,
   endpoints,
   tests,
   stats,
@@ -34,7 +32,9 @@ export const app = {
     const back = document.querySelector(".sa-back");
     if (back) back.href = href;
   },
-  async refreshStatus() {
+  /** The state of the project. sync: the page already shows it (e.g., after saving), so a new
+   *  revision is not a change to show again */
+  async refreshStatus({ sync = true } = {}) {
     let s;
     try {
       s = await api("/status", "GET", undefined, undefined, { quiet: true });
@@ -47,6 +47,7 @@ export const app = {
     this.lost = false;
     reportChanges(this.status, s);
     this.status = s;
+    if (sync) lastRevision = s.revision;
     document.querySelector("#project-name").textContent = this.info?.project ?? "";
     document.querySelector("#version").textContent = `Silence v${this.info?.silence ?? "?"} · panel v${panelVersion}`;
     document.querySelector("#link-api").href = s.apiPrefix;
@@ -103,7 +104,7 @@ let rendering = false;
 /** The project's files changed (panel, editor, git...): show them again, unless the user is editing. */
 async function watchRevision() {
   try {
-    const s = await app.refreshStatus();
+    const s = await app.refreshStatus({ sync: false });
     if (!s || app.lost) return;
     if (lastRevision !== null && s.revision !== lastRevision && !rendering
         && !editing(document.querySelector("#page"))) {

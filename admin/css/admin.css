@@ -653,3 +653,92 @@ body {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+/* A switch (a checkbox) */
+.sa-switch {
+  position: relative;
+  display: inline-block;
+  width: 34px;
+  height: 18px;
+  vertical-align: middle;
+}
+
+.sa-switch input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.sa-switch input:disabled {
+  cursor: not-allowed;
+}
+
+.sa-switch__slider {
+  position: absolute;
+  inset: 0;
+  border-radius: 9px;
+  background: #ccc;
+  transition: background .15s;
+}
+
+.sa-switch__slider::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform .15s;
+}
+
+.sa-switch input:checked + .sa-switch__slider {
+  background: var(--sa-get);
+}
+
+.sa-switch input:checked + .sa-switch__slider::before {
+  transform: translateX(16px);
+}
+
+.sa-switch input:focus-visible + .sa-switch__slider {
+  outline: 2px solid var(--sa-accent);
+  outline-offset: 2px;
+}
+
+.sa-switch input:disabled + .sa-switch__slider {
+  opacity: .5;
+}
+
+/* Endpoints: the roles (a combo with checkboxes) and the owner */
+.sa-roles {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sa-roles__button {
+  max-width: 9rem;
+  overflow: hidden;
+  padding: 0 8px;
+  text-transform: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sa-roles__drop {
+  min-width: 12rem;
+  padding: 12px;
+}
+
+.sa-roles__option {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.sa-owner {
+  width: 7.5rem;
+}

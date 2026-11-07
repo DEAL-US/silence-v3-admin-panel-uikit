@@ -1,41 +1,69 @@
-// Database, in three tabs: #/database/connection (tested before saving it; testing it also
-// lists the databases), #/database/tables (the tables and views, with their rows) and
-// #/database/users (the users table, login and register).
+// Database, in tabs: #/database/connection (tested before saving it; testing it also lists
+// the databases), #/database/tables (the tables and views, with their rows), #/database/auth
+// (the users table, login and register) and #/database/users (the users: passwords and "act
+// as"; #/database/users/password/<id> to change one). The tabs that need the database are
+// disabled while the connection fails or is being changed; Users, until the users table is linked.
 import { api, esc, attempt, toast, editing } from "../ui.js";
 import { dataTable } from "../components/table.js";
+import { usersTab, passwordPage } from "./users.js";
 
-const TABS = { connection: "Connection", tables: "Tables and views", users: "Users table" };
+const TABS = { connection: "Connection", tables: "Tables and views", auth: "Users table", users: "Users" };
 
 export function crumbs(params) {
-  return [{ label: "Database", href: "#/database" }, { label: TABS[params[0]] ?? TABS.connection }];
+  const [tab, view, id] = params;
+  const base = [{ label: "Database", href: "#/database" }];
+  if (tab === "users" && view === "password") {
+    return [...base, { label: "Users", href: "#/database/users" }, { label: id === "all" ? "Password of everybody" : `Password of user ${id}` }];
+  }
+  return [...base, { label: TABS[tab] ?? TABS.connection }];
+}
+
+export function parent(params) {
+  return params[0] === "users" && params[1] === "password" ? "#/database/users" : null;
+}
+
+/** Why a tab cannot be opened now (null: it can) */
+function blocked(tab, app, changing) {
+  if (tab === "connection") return null;
+  if (app.status.database.error) return "Connect to the database first";
+  if (changing) return "Save the connection first";
+  if (tab === "users" && !app.status.auth.linked) return "Link the users table first";
+  return null;
+}
+
+function drawTabs(nav, tab, app, changing = false) {
+  nav.innerHTML = Object.entries(TABS).map(([key, label]) => {
+    const why = blocked(key, app, changing);
+    return why
+      ? `<li class="uk-disabled" title="${esc(why)}"><a aria-disabled="true">${label}</a></li>`
+      : `<li class="${key === tab ? "uk-active" : ""}"><a href="#/database/${key}">${label}</a></li>`;
+  }).join("");
 }
 
 export async function render(main, app, params) {
-  const tab = TABS[params[0]] ? params[0] : "connection";
-  const dbOk = !app.status.database.error;
+  const [requested, view, id] = params;
+  let tab = TABS[requested] ? requested : "connection";
+  const why = blocked(tab, app, false);
+  if (why) tab = "connection";
   main.innerHTML = `
     <h1>Database</h1>
-    <ul class="uk-tab sa-tabs">
-      ${Object.entries(TABS).map(([key, label]) =>
-        `<li class="${key === tab ? "uk-active" : ""}"><a href="#/database/${key}">${label}</a></li>`).join("")}
-    </ul>
+    <ul class="uk-tab sa-tabs" id="db-tabs"></ul>
+    ${why && requested && requested !== "connection" ? `<div class="uk-alert uk-alert-warning">${esc(why)}.</div>` : ""}
     <div id="tab"></div>`;
+  const nav = main.querySelector("#db-tabs");
+  drawTabs(nav, tab, app);
   const body = main.querySelector("#tab");
-  if (tab === "connection") return connection(body, app);
-  if (!dbOk) {
-    body.innerHTML = `<div class="uk-alert uk-alert-warning">Connect to the database first, in
-      <a href="#/database/connection">Connection</a>.</div>`;
-    return;
-  }
+  if (tab === "connection") return connection(body, app, (changing) => drawTabs(nav, tab, app, changing));
   if (tab === "tables") return tables(body, app);
-  return users(body, app);
+  if (tab === "users") return view === "password" ? passwordPage(body, id) : usersTab(body, app);
+  return users(body, app, () => drawTabs(nav, tab, app));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Connection
 ///////////////////////////////////////////////////////////////////////////////
 
-async function connection(body, app) {
+async function connection(body, app, onChange) {
   const db = (await api("/config")).config.database;
   body.innerHTML = `
     <p class="uk-text-muted">Silence uses an existing database: create it and load its data first
@@ -80,7 +108,10 @@ async function connection(body, app) {
       // Silence is not reachable: the console says so
     }
   }
-  form.addEventListener("input", () => editing(page, true));
+  form.addEventListener("input", () => {
+    editing(page, true);
+    onChange(true);
+  });
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const res = await attempt(() => api("/database/test", "POST", values()));
@@ -102,6 +133,7 @@ async function connection(body, app) {
       show(true, `Connected to <code>${esc(values().name)}</code> and saved in <code>silence.json</code>.`);
       editing(page, false);
       await app.refreshStatus();
+      onChange(false);
     }
   });
 }
@@ -151,7 +183,7 @@ async function tables(body, app) {
 // Users table: login and register
 ///////////////////////////////////////////////////////////////////////////////
 
-async function users(body, app) {
+async function users(body, app, onLinked) {
   const [config, schema] = await Promise.all([attempt(() => api("/config")), attempt(() => api("/schema"))]);
   if (!config || !schema) return;
   const auth = config.config.auth;
@@ -217,6 +249,7 @@ async function users(body, app) {
     if (await attempt(() => api("/config/auth", "PATCH", v), "Saved in silence.json")) {
       editing(page, false);
       await app.refreshStatus();
+      onLinked();  // The Users tab is enabled (or disabled) as the table is linked (or not)
     }
   });
 }

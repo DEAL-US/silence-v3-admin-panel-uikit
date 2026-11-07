@@ -1,5 +1,5 @@
-// Users: the rows of the linked users table, their passwords and "act as".
-// Views: #/users and #/users/password/<id> (or #/users/password/all).
+// Users: the rows of the linked users table, their passwords and "act as". A tab of Database:
+// #/database/users and #/database/users/password/<id> (or .../password/all).
 import { api, esc, attempt, session, toast, editing, link, iconButton } from "../ui.js";
 import { dataTable } from "../components/table.js";
 
@@ -9,28 +9,7 @@ const STATUS = {
   unsupported: `<span class="uk-label uk-label-danger">unsupported hash</span>`,
 };
 
-export function crumbs(params) {
-  const [view, id] = params;
-  const base = [{ label: "Users", href: "#/users" }];
-  if (view === "password") return [...base, { label: id === "all" ? "Password of everybody" : `Password of user ${id}` }];
-  return base;
-}
-
-export function parent(params) {
-  return params[0] === "password" ? "#/users" : null;
-}
-
-export async function render(main, app, params) {
-  if (!app.status.auth.linked) {
-    main.innerHTML = `<h1>Users</h1><div class="uk-alert uk-alert-warning">Link the users table first, in <a href="#/database/users">Database</a>.</div>`;
-    return;
-  }
-  const [view, id] = params;
-  if (view === "password") return passwordPage(main, id);
-  return listPage(main, app);
-}
-
-async function listPage(main, app) {
+export async function usersTab(main, app) {
   const res = await attempt(() => api("/users"));
   if (!res) return;
   const auth = app.status.auth;
@@ -38,13 +17,12 @@ async function listPage(main, app) {
   const wrong = res.users.filter((u) => u.password === "unsupported" || (mode === "argon2" && u.password === "plain"));
 
   main.innerHTML = `
-    <h1>Users</h1>
     ${wrong.length ? `<div class="uk-alert uk-alert-warning">${wrong.length} users cannot log in: their stored password is
       ${mode === "argon2" ? "not an argon2 hash" : "a hash that Silence does not support"}. Set their password again.</div>` : ""}
     <div class="sa-toolbar">
       <span class="uk-text-muted">Table <code>${esc(auth.table)}</code>; passwords stored ${mode === "argon2" ? "encrypted (argon2)" : "as plain text"}.</span>
       <span class="sa-toolbar__spacer"></span>
-      <a class="uk-button uk-button-default" href="#/users/password/all">Same password for everybody</a>
+      <a class="uk-button uk-button-default" href="#/database/users/password/all">Same password for everybody</a>
     </div>
     <div id="grid"></div>
     <p class="uk-text-muted sa-small">«Act as» opens a session for that user without its password: the endpoints that you
@@ -52,7 +30,7 @@ async function listPage(main, app) {
 
   const columns = [
     { key: "actions", label: "", filter: false, sortable: false, className: "sa-actions", render: (u) =>
-      iconButton("lock", "Set password", { href: link("users", "password", u.id) }) +
+      iconButton("lock", "Set password", { href: link("database", "users", "password", u.id) }) +
       iconButton("user", "Act as this user (try the endpoints with its session)", { action: "act" }) },
     { key: "id", label: res.pk, value: (u) => u.id },
     { key: "identifier", label: auth.identifier },
@@ -76,7 +54,7 @@ async function listPage(main, app) {
   });
 }
 
-async function passwordPage(main, id) {
+export async function passwordPage(main, id) {
   const all = id === "all";
   main.innerHTML = `
     <h1>${all ? "Same password for everybody" : `Password of user ${esc(id)}`}</h1>
@@ -85,7 +63,7 @@ async function passwordPage(main, id) {
         <input class="uk-input" id="new-password" name="password" required autocomplete="new-password"></div>
       <div class="sa-toolbar">
         <button class="uk-button uk-button-primary" type="submit">Save</button>
-        <a class="uk-button uk-button-default" href="#/users">Cancel</a>
+        <a class="uk-button uk-button-default" href="#/database/users">Cancel</a>
       </div>
     </form>`;
   const form = main.querySelector("#password-form");
@@ -96,7 +74,7 @@ async function passwordPage(main, id) {
     const path = all ? "/users/password" : `/users/${encodeURIComponent(id)}/password`;
     if (await attempt(() => api(path, "PUT", { password }), all ? "Passwords saved" : "Password saved")) {
       editing(main, false);
-      location.hash = "#/users";
+      location.hash = "#/database/users";
     }
   });
 }
