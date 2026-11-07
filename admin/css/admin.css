@@ -778,3 +778,15 @@ body {
   font-size: .7rem;
   text-transform: none;
 }
+
+/* Advanced settings: a section that opens */
+.sa-advanced {
+  margin: 32px 0;
+}
+
+.sa-advanced > summary {
+  margin-bottom: 16px;
+  font-size: 1.25rem;
+  font-weight: 500;
+  cursor: pointer;
+}

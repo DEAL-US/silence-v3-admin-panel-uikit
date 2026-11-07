@@ -1,5 +1,5 @@
 // Users: the rows of the linked users table, their passwords and "act as". A tab of Database:
-// #/database/users and #/database/users/password/<id> (or .../password/all).
+// #/database/users and #/database/users/password/<id>.
 import { api, esc, attempt, session, toast, editing, link, iconButton } from "../ui.js";
 import { dataTable } from "../components/table.js";
 
@@ -21,9 +21,7 @@ export async function usersTab(main, app) {
       ${mode === "argon2" ? "not an argon2 hash" : "a hash that Silence does not support"}. Set their password again.</div>` : ""}
     <div class="sa-toolbar">
       <span class="uk-text-muted">Table <code>${esc(auth.table)}</code>; passwords stored ${mode === "argon2" ? "encrypted (argon2)" : "as plain text"}
-        (<a href="#/database/auth">change</a>).</span>
-      <span class="sa-toolbar__spacer"></span>
-      <a class="uk-button uk-button-default" href="#/database/users/password/all">Same password for everybody</a>
+        (<a href="#/">change it in Overview</a>).</span>
     </div>
     <div id="grid"></div>
     <p class="uk-text-muted sa-small">«Act as» opens a session for that user without its password: the endpoints that you
@@ -56,9 +54,8 @@ export async function usersTab(main, app) {
 }
 
 export async function passwordPage(main, id) {
-  const all = id === "all";
   main.innerHTML = `
-    <h1>${all ? "Same password for everybody" : `Password of user ${esc(id)}`}</h1>
+    <h1>Password of user ${esc(id)}</h1>
     <form id="password-form" class="sa-form">
       <div class="sa-field"><label class="uk-form-label" for="new-password">New password</label>
         <input class="uk-input" id="new-password" name="password" required autocomplete="new-password"></div>
@@ -72,8 +69,8 @@ export async function passwordPage(main, id) {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const password = form.querySelector("#new-password").value;
-    const path = all ? "/users/password" : `/users/${encodeURIComponent(id)}/password`;
-    if (await attempt(() => api(path, "PUT", { password }), all ? "Passwords saved" : "Password saved")) {
+    const path = `/users/${encodeURIComponent(id)}/password`;
+    if (await attempt(() => api(path, "PUT", { password }), "Password saved")) {
       editing(main, false);
       location.hash = "#/database/users";
     }

@@ -15,6 +15,15 @@ function describe(method, path, body, data) {
       (data?.ok ? ", connected" : data?.error ? `: ${data.error}` : "") + (data?.databases ? ` (${data.databases.length} databases)` : "")];
   }
   if (res === "config" && a === "database") return ["Database", `Connection saved in silence.json: ${body?.name ?? ""}`];
+  if (res === "config" && a === "auth" && !("table" in (body ?? {}))) {
+    const said = [];
+    if ("login" in body) said.push(`login ${body.login ? "on" : "off"}`);
+    if ("register" in body) said.push(`register ${body.register ? "on" : "off"}`);
+    if ("password_mode" in body) said.push(`passwords ${body.password_mode === "argon2" ? "encrypted (argon2)" : "as plain text"}`);
+    if ("default_role" in body) said.push(`role of the new users ${body.default_role ? `'${body.default_role}'` : "none"}`);
+    if ("token_max_age" in body) said.push(`sessions of ${body.token_max_age} s`);
+    return ["Users", `Saved in silence.json: ${said.join(", ")}`];
+  }
   if (res === "config" && a === "auth") {
     return ["Users", body?.table
       ? `Users table linked: ${body.table} (identifier ${body.identifier}, password ${body.password}${body.role ? `, role ${body.role}` : ""}); login ${body.login ? "on" : "off"}, register ${body.register ? "on" : "off"}`

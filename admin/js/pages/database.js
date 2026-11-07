@@ -13,7 +13,7 @@ export function crumbs(params) {
   const [tab, view, id] = params;
   const base = [{ label: "Database", href: "#/database" }];
   if (tab === "users" && view === "password") {
-    return [...base, { label: "Users", href: "#/database/users" }, { label: id === "all" ? "Password of everybody" : `Password of user ${id}` }];
+    return [...base, { label: "Users", href: "#/database/users" }, { label: `Password of user ${id}` }];
   }
   return [...base, { label: TABS[tab] ?? TABS.connection }];
 }
@@ -188,7 +188,6 @@ async function users(body, app, onLinked) {
   if (!config || !schema) return;
   const auth = config.config.auth;
   const tables = schema.relations.filter((r) => !r.view);
-  const prefix = app.status.apiPrefix;
 
   const options = (cols, selected, empty) => `<option value="">${empty}</option>` +
     cols.map((c) => `<option ${c === selected ? "selected" : ""}>${esc(c)}</option>`).join("");
@@ -207,24 +206,6 @@ async function users(body, app, onLinked) {
           <div class="sa-field"><label class="uk-form-label" for="auth-role">Role (optional)</label><select class="uk-select" id="auth-role" name="role"></select></div>
           <div class="sa-field"><label class="uk-form-label" for="auth-active">Active (optional)</label><select class="uk-select" id="auth-active" name="active"></select></div>
         </div>
-      </fieldset>
-      <fieldset class="sa-block">
-        <legend>Passwords</legend>
-        <p class="uk-text-muted sa-small">How the passwords are stored in the password column. Changing it does not convert the
-          stored ones: set them again in <a href="#/database/users">Users</a>.</p>
-        <label class="sa-radio"><input class="uk-radio" type="radio" name="password_mode" value="argon2" ${auth.password_mode === "argon2" ? "checked" : ""}>
-          Encrypted (<strong>argon2</strong>): the register stores the hash; the login compares with it</label>
-        <label class="sa-radio"><input class="uk-radio" type="radio" name="password_mode" value="plain" ${auth.password_mode === "plain" ? "checked" : ""}>
-          <strong>Plain text</strong>: as they are (only for practice databases)</label>
-      </fieldset>
-      <fieldset class="sa-block">
-        <legend>Login and register</legend>
-        <div class="sa-switch-row"><label class="sa-switch"><input type="checkbox" name="login" ${auth.login ? "checked" : ""}
-          aria-label="Login"><span class="sa-switch__slider"></span></label> Login: <code>POST ${esc(prefix)}/login</code></div>
-        <div class="sa-switch-row"><label class="sa-switch"><input type="checkbox" name="register" ${auth.register ? "checked" : ""}
-          aria-label="Register"><span class="sa-switch__slider"></span></label> Register: <code>POST ${esc(prefix)}/register</code></div>
-        <div class="sa-form"><div class="sa-field"><label class="uk-form-label" for="auth-default-role">Role of the new users (register)</label>
-          <input class="uk-input" id="auth-default-role" name="default_role" value="${esc(auth.default_role)}"></div></div>
       </fieldset>
       <div class="sa-toolbar"><button class="uk-button uk-button-primary" type="submit">Save</button></div>
     </form>`;
@@ -249,8 +230,6 @@ async function users(body, app, onLinked) {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const v = Object.fromEntries(new FormData(form));
-    v.login = form.querySelector("[name=login]").checked;
-    v.register = form.querySelector("[name=register]").checked;
     if (v.table && (!v.identifier || !v.password)) {
       toast("Choose the identifier and password columns", "error");
       return;

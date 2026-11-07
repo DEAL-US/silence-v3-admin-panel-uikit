@@ -1,5 +1,7 @@
-// Overview: the steps to get the project working, and the current problems.
-import { esc } from "../ui.js";
+// Overview: the steps to get the project working, the current problems and the settings of
+// silence.json: login, register and passwords in sight, and the rest under "Advanced".
+// (The database connection and the users table are in Database.)
+import { api, esc, attempt, editing, toast } from "../ui.js";
 
 export async function render(main, app) {
   const s = app.status;
@@ -43,5 +45,131 @@ export async function render(main, app) {
         and the API at <a href="${esc(s.apiPrefix)}" target="_blank">${esc(s.baseUrl + s.apiPrefix)}</a>.
         The requests to both are shown in the console where <code>silence run</code> is running; the activity of
         this panel, in its console (at the bottom).</p>
-    </section>`;
+    </section>
+    <div id="settings"></div>`;
+  await settings(main.querySelector("#settings"), app);
+}
+
+const sw = (name, checked, label, disabled = false) => `<div class="sa-switch-row">
+  <label class="sa-switch"><input type="checkbox" name="${name}" ${checked ? "checked" : ""} ${disabled ? "disabled" : ""}
+    aria-label="${esc(label.replace(/<[^>]+>/g, ""))}"><span class="sa-switch__slider"></span></label> ${label}</div>`;
+const field = (name, label, value, type = "text", extra = "") => `<div class="sa-field">
+  <label class="uk-form-label" for="set-${name}">${label}</label>
+  <input class="uk-input" id="set-${name}" name="${name}" type="${type}" value="${esc(value)}" ${extra}></div>`;
+
+async function settings(box, app) {
+  const res = await attempt(() => api("/config"));
+  if (!res) return;
+  const c = res.config;
+  const a = c.auth;
+  const prefix = app.status.apiPrefix;
+  const linked = app.status.auth.linked;
+  box.innerHTML = `
+    <section class="sa-section">
+      <h2>Login and passwords</h2>
+      ${linked ? "" : `<p class="uk-text-muted sa-small">They need the users table: link it in <a href="#/database/auth">Database</a>.</p>`}
+      <form data-section="auth" id="set-auth">
+        <fieldset class="sa-block">
+          <legend>Login and register</legend>
+          ${sw("login", a.login, `Login: <code>POST ${esc(prefix)}/login</code>`, !linked)}
+          ${sw("register", a.register, `Register: <code>POST ${esc(prefix)}/register</code>`, !linked)}
+          <div class="sa-form">${field("default_role", "Role of the new users (register)", a.default_role, "text", linked ? "" : "disabled")}</div>
+        </fieldset>
+        <fieldset class="sa-block">
+          <legend>Passwords</legend>
+          <p class="uk-text-muted sa-small">How they are stored in the password column. Changing it does not convert the stored
+            ones: set them again in <a href="#/database/users">Database → Users</a>.</p>
+          <label class="sa-radio"><input class="uk-radio" type="radio" name="password_mode" value="argon2" ${a.password_mode === "argon2" ? "checked" : ""}>
+            Encrypted (<strong>argon2</strong>): the register stores the hash; the login compares with it</label>
+          <label class="sa-radio"><input class="uk-radio" type="radio" name="password_mode" value="plain" ${a.password_mode === "plain" ? "checked" : ""}>
+            <strong>Plain text</strong>: as they are (only for practice databases)</label>
+        </fieldset>
+        <div class="sa-toolbar"><button class="uk-button uk-button-primary" type="submit">Save</button></div>
+      </form>
+    </section>
+
+    <details class="sa-advanced">
+      <summary>Advanced settings</summary>
+      <p class="uk-text-muted sa-small">The rest of <code>silence.json</code>. Each block is saved on its own.</p>
+      <form data-section="server">
+        <fieldset class="sa-block">
+          <legend>Server</legend>
+          <div class="sa-form">
+            ${field("address", "Address", c.server.address)}
+            ${field("port", "Port", c.server.port, "number", 'min="1" max="65535"')}
+            ${field("api_prefix", "Prefix of the API", c.server.api_prefix)}
+          </div>
+          <p class="uk-text-muted sa-small">The address and the port are used when Silence starts again (<code>silence run</code>).</p>
+          ${sw("open_browser", c.server.open_browser, "Open this panel in the browser when Silence starts")}
+          ${sw("log_bodies", c.server.log_bodies, "Show the body of each POST and PUT in the console of <code>silence run</code>")}
+          ${sw("decimals_as_strings", c.server.decimals_as_strings, "Send the DECIMAL columns as strings (exact) instead of numbers")}
+          ${sw("check_updates", c.server.check_updates, "Tell when there is a new version of Silence")}
+          <div class="sa-toolbar"><button class="uk-button uk-button-default" type="submit">Save</button></div>
+        </fieldset>
+      </form>
+      <form data-section="auth-advanced">
+        <fieldset class="sa-block">
+          <legend>Sessions</legend>
+          <div class="sa-form">${field("token_max_age", "Duration of a session (seconds)", a.token_max_age, "number", 'min="60"')}</div>
+          <div class="sa-toolbar"><button class="uk-button uk-button-default" type="submit">Save</button></div>
+        </fieldset>
+      </form>
+      <form data-section="js_api">
+        <fieldset class="sa-block">
+          <legend>JS API for the web app</legend>
+          ${sw("enabled", c.js_api.enabled, "Generate the JavaScript functions to call the API when the endpoints are generated")}
+          <div class="sa-form">${field("dir", "Folder", c.js_api.dir)}</div>
+          <div class="sa-toolbar"><button class="uk-button uk-button-default" type="submit">Save</button></div>
+        </fieldset>
+      </form>
+      <form data-section="debug">
+        <fieldset class="sa-block">
+          <legend>Debug</legend>
+          ${sw("debug", c.debug, "Show the SQL queries and the details of the errors in the console of <code>silence run</code>")}
+          <div class="sa-toolbar"><button class="uk-button uk-button-default" type="submit">Save</button></div>
+        </fieldset>
+      </form>
+      <fieldset class="sa-block">
+        <legend>Admin panel</legend>
+        <p class="sa-small">${c.admin ? `<code>${esc(c.admin.repo)}</code>, version <code>${esc(c.admin.version)}</code>.` : "None."}
+          To update it: <code>silence admin update</code> (with <code>--version</code> or <code>--latest</code>).</p>
+      </fieldset>
+    </details>`;
+
+  const page = box.closest("#page");
+  const valuesOf = (form) => {
+    const values = {};
+    for (const el of form.elements) {
+      if (!el.name || el.disabled) continue;
+      if (el.type === "checkbox") values[el.name] = el.checked;
+      else if (el.type === "radio") { if (el.checked) values[el.name] = el.value; }
+      else if (el.type === "number") values[el.name] = Number(el.value);
+      else values[el.name] = el.value;
+    }
+    return values;
+  };
+  for (const form of box.querySelectorAll("form[data-section]")) {
+    let saved = valuesOf(form);  // Only what changes is sent (e.g., the port only if it changes)
+    form.addEventListener("input", () => editing(page, true));
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const current = valuesOf(form);
+      const values = Object.fromEntries(Object.entries(current).filter(([k, v]) => saved[k] !== v));
+      if (!Object.keys(values).length) {
+        toast("Nothing has changed", "info");
+        editing(page, false);
+        return;
+      }
+      const section = form.dataset.section.replace("-advanced", "");
+      const res = await attempt(() => api(`/config/${section}`, "PATCH", values), "Saved in silence.json");
+      if (!res) return;
+      saved = current;
+      editing(page, false);
+      if (res.restartNeeded) {
+        form.insertAdjacentHTML("beforeend", `<div class="uk-alert uk-alert-warning">Start Silence again
+          (<code>silence run</code>) to use the new address or port.</div>`);
+      }
+      await app.refreshStatus();
+    });
+  }
 }
