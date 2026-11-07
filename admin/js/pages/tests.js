@@ -7,8 +7,9 @@ let state = { tests: [], errors: [], files: {}, results: {}, filter: "" };
 const EXAMPLE = {
   description: "Describe what the test checks",
   steps: [
-    { request: { method: "POST", path: "/my_table", as: 1, body: { column: "value" } }, expect: { status: 201 }, save: { id: "lastId" } },
-    { request: { method: "GET", path: "/my_table/${id}" }, expect: { status: 200, row: { column: "value" } } },
+    { "POST /my_table": { column: "value" }, as: 1, save: { id: "lastId" } },
+    { "GET /my_table/${id}": null, expect: { row: { column: "value" } } },
+    { "DELETE /my_table/${id}": null, as: 2, expect: 403 },
   ],
 };
 
@@ -124,7 +125,7 @@ function draw(main) {
 function row(t) {
   const r = state.results[t.name];
   const result = !r ? `<span class="uk-text-muted">—</span>` : r.passed ? `<span class="sa-pass">PASS</span>` : `<span class="sa-fail">FAIL</span>`;
-  const first = t.steps[0]?.request ?? {};
+  const first = t.first ?? {};
   const badge = t.source === "auto" ? `<span class="uk-label sa-label-auto">auto</span>` : `<span class="uk-label">custom</span>`;
   return `
     <tr>
@@ -186,8 +187,9 @@ async function edit(main, t, draft) {
   const name = draft?.name ?? t?.name ?? "";
   const file = draft?.file ?? t?.file ?? (state.filter || "my_table");
   const v = await dialog(t ? `Edit ${t.name}` : "New composed test", `
-    <p class="sa-small uk-text-muted">Steps: <code>request</code> (method, path after the API prefix, <code>as</code>: the id of the user,
-      body), <code>expect</code> (status, count, row, message) and <code>save</code> (variables for the next steps, as <code>\${name}</code>).</p>
+    <p class="sa-small uk-text-muted">Each step: <code>"METHOD /path": body</code> (<code>null</code> without body), <code>as</code>
+      (the id of the user, no password needed), <code>expect</code> (a status, or an object with status, count, row and message;
+      without it, a 2xx) and <code>save</code> (values of the response for the next steps, as <code>\${name}</code>).</p>
     <div class="sa-form">
       <div class="sa-field"><label class="uk-form-label" for="t-name">Name</label><input class="uk-input" id="t-name" name="name" value="${esc(name)}" required pattern="\\w+"></div>
       <div class="sa-field"><label class="uk-form-label" for="t-file">File (tests/….json)</label><input class="uk-input" id="t-file" name="file" value="${esc(file)}" required pattern="[\\w-]+"></div>
