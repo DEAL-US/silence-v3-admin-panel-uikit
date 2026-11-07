@@ -20,7 +20,8 @@ export async function usersTab(main, app) {
     ${wrong.length ? `<div class="uk-alert uk-alert-warning">${wrong.length} users cannot log in: their stored password is
       ${mode === "argon2" ? "not an argon2 hash" : "a hash that Silence does not support"}. Set their password again.</div>` : ""}
     <div class="sa-toolbar">
-      <span class="uk-text-muted">Table <code>${esc(auth.table)}</code>; passwords stored ${mode === "argon2" ? "encrypted (argon2)" : "as plain text"}.</span>
+      <span class="uk-text-muted">Table <code>${esc(auth.table)}</code>; passwords stored ${mode === "argon2" ? "encrypted (argon2)" : "as plain text"}
+        (<a href="#/database/auth">change</a>).</span>
       <span class="sa-toolbar__spacer"></span>
       <a class="uk-button uk-button-default" href="#/database/users/password/all">Same password for everybody</a>
     </div>

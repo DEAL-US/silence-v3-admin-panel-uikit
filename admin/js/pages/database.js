@@ -194,26 +194,38 @@ async function users(body, app, onLinked) {
     cols.map((c) => `<option ${c === selected ? "selected" : ""}>${esc(c)}</option>`).join("");
 
   body.innerHTML = `
-    <p class="uk-text-muted">The table with the users of your application: it enables the login and the register,
-      sessions, roles (a column of the table) and owners.</p>
-    <form class="sa-form" id="auth-form">
-      <div class="sa-field"><label class="uk-form-label" for="auth-table">Table</label>
-        <select class="uk-select" id="auth-table" name="table">${options(tables.map((t) => t.name), auth.table, "(not linked)")}</select></div>
-      <div class="sa-field"><label class="uk-form-label" for="auth-identifier">Identifier</label><select class="uk-select" id="auth-identifier" name="identifier"></select></div>
-      <div class="sa-field"><label class="uk-form-label" for="auth-password">Password</label><select class="uk-select" id="auth-password" name="password"></select></div>
-      <div class="sa-field"><label class="uk-form-label" for="auth-role">Role (optional)</label><select class="uk-select" id="auth-role" name="role"></select></div>
-      <div class="sa-field"><label class="uk-form-label" for="auth-active">Active (optional)</label><select class="uk-select" id="auth-active" name="active"></select></div>
-      <div class="sa-field"><label class="uk-form-label" for="auth-mode">Passwords</label>
-        <select class="uk-select" id="auth-mode" name="password_mode">
-          <option value="argon2" ${auth.password_mode === "argon2" ? "selected" : ""}>Encrypted (argon2)</option>
-          <option value="plain" ${auth.password_mode === "plain" ? "selected" : ""}>Plain text</option>
-        </select></div>
-      <div class="sa-field"><label class="uk-form-label" for="auth-default-role">Role of new users (register)</label>
-        <input class="uk-input" id="auth-default-role" name="default_role" value="${esc(auth.default_role)}"></div>
-      <div class="sa-field sa-checks">
-        <label><input class="uk-checkbox" type="checkbox" name="login" ${auth.login ? "checked" : ""}> Login (<code>POST ${esc(prefix)}/login</code>)</label>
-        <label><input class="uk-checkbox" type="checkbox" name="register" ${auth.register ? "checked" : ""}> Register (<code>POST ${esc(prefix)}/register</code>)</label>
-      </div>
+    <form id="auth-form">
+      <fieldset class="sa-block">
+        <legend>Table and columns</legend>
+        <p class="uk-text-muted sa-small">The table with the users of your application: it enables the login and the register,
+          sessions, roles (a column of the table) and owners.</p>
+        <div class="sa-form">
+          <div class="sa-field"><label class="uk-form-label" for="auth-table">Table</label>
+            <select class="uk-select" id="auth-table" name="table">${options(tables.map((t) => t.name), auth.table, "(not linked)")}</select></div>
+          <div class="sa-field"><label class="uk-form-label" for="auth-identifier">Identifier</label><select class="uk-select" id="auth-identifier" name="identifier"></select></div>
+          <div class="sa-field"><label class="uk-form-label" for="auth-password">Password</label><select class="uk-select" id="auth-password" name="password"></select></div>
+          <div class="sa-field"><label class="uk-form-label" for="auth-role">Role (optional)</label><select class="uk-select" id="auth-role" name="role"></select></div>
+          <div class="sa-field"><label class="uk-form-label" for="auth-active">Active (optional)</label><select class="uk-select" id="auth-active" name="active"></select></div>
+        </div>
+      </fieldset>
+      <fieldset class="sa-block">
+        <legend>Passwords</legend>
+        <p class="uk-text-muted sa-small">How the passwords are stored in the password column. Changing it does not convert the
+          stored ones: set them again in <a href="#/database/users">Users</a>.</p>
+        <label class="sa-radio"><input class="uk-radio" type="radio" name="password_mode" value="argon2" ${auth.password_mode === "argon2" ? "checked" : ""}>
+          Encrypted (<strong>argon2</strong>): the register stores the hash; the login compares with it</label>
+        <label class="sa-radio"><input class="uk-radio" type="radio" name="password_mode" value="plain" ${auth.password_mode === "plain" ? "checked" : ""}>
+          <strong>Plain text</strong>: as they are (only for practice databases)</label>
+      </fieldset>
+      <fieldset class="sa-block">
+        <legend>Login and register</legend>
+        <div class="sa-switch-row"><label class="sa-switch"><input type="checkbox" name="login" ${auth.login ? "checked" : ""}
+          aria-label="Login"><span class="sa-switch__slider"></span></label> Login: <code>POST ${esc(prefix)}/login</code></div>
+        <div class="sa-switch-row"><label class="sa-switch"><input type="checkbox" name="register" ${auth.register ? "checked" : ""}
+          aria-label="Register"><span class="sa-switch__slider"></span></label> Register: <code>POST ${esc(prefix)}/register</code></div>
+        <div class="sa-form"><div class="sa-field"><label class="uk-form-label" for="auth-default-role">Role of the new users (register)</label>
+          <input class="uk-input" id="auth-default-role" name="default_role" value="${esc(auth.default_role)}"></div></div>
+      </fieldset>
       <div class="sa-toolbar"><button class="uk-button uk-button-primary" type="submit">Save</button></div>
     </form>`;
 

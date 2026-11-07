@@ -742,3 +742,39 @@ body {
 .sa-owner {
   width: 7.5rem;
 }
+
+.sa-label-custom {
+  background: var(--sa-post);
+}
+
+/* A form in blocks (fieldsets) */
+.sa-block {
+  margin: 0 0 24px;
+  padding: 16px 20px 4px;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.sa-block legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+.sa-radio {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.sa-switch-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.sa-label-small {
+  padding: 0 6px;
+  font-size: .7rem;
+  text-transform: none;
+}
