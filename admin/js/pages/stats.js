@@ -1,6 +1,6 @@
 // Statistics of the requests since Silence started (kept in memory by Silence), in three tabs as
-// silence-dev4 groups them: the student's API, the student's web app and Silence's API (login,
-// register, the admin API). The tests count too.
+// silence-dev4 groups them: the student's API, the student's web app and what Silence gives to
+// the student's app (login, register, GET /api). The tests count too; the panel does not.
 import { html, tabs, methodBadge, statusClass, muted } from "../lib/html.js";
 import { api, quietApi } from "../lib/api.js";
 import { attempt } from "../lib/ui.js";
@@ -9,7 +9,7 @@ import { dataTable } from "../components/table.js";
 const GROUPS = {
   api: ["Your API", "The endpoints of endpoints/*.json, also when the tests call them"],
   web: ["Your web app", "The files of web/"],
-  silence: ["Silence's API", "Login, register, the API summary and the admin API (this panel)"],
+  silence: ["Silence's API", "What Silence gives to your app: login, register and the API summary (GET /api)"],
 };
 
 // What to do to see something in each tab
