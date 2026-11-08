@@ -75,8 +75,8 @@ export function whereIs(path) {
   if (res === "config") return "#/overview/advanced";
   if (res === "users") return "#/database/users";
   if (res === "endpoints") return "#/endpoints";
-  if (res === "tests") return "#/tests";
-  if (res === "panel-data") return "#/tests/scenarios";
+  if (res === "tests") return "#/endpoints";
+  if (res === "panel-data") return "#/scenarios";
   if (res === "stats") return "#/stats";
   return undefined;
 }

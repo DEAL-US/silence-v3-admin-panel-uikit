@@ -72,7 +72,7 @@ function start(body, s) {
       ${step(false, "Run the tests",
         `Silence generates them from the endpoints (positive and negative, with the status that each request should
           get)${s.tests.custom ? `, plus ${s.tests.custom} custom` : ""}. The panel runs them against your API.`,
-        "#/tests", "Run")}
+        "#/endpoints", "Run")}
     </ol>
     <h2>Your app</h2>
     <p>The web app is served from <code>web/</code> at <a href="/" target="_blank">${s.baseUrl}/</a>,

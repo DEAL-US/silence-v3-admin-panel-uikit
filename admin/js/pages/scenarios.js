@@ -1,141 +1,201 @@
-// Scenarios: sequences of unit tests, by name, kept by the panel (admin/data/scenarios.json)
-// and run step by step against the student's API (they change the database). Views (after
-// #/tests/scenarios): the grid, /new and /edit/<name>.
-import { html, link, iconButton, options } from "../lib/html.js";
-import { toast, needsConfirm } from "../lib/ui.js";
-import { runScenario } from "../lib/runner.js";
+// Scenarios: sequences of requests to the student's API (e.g., create, read, change and delete a
+// row), each step written as a unit test (the endpoint, its params, the user and what it expects),
+// kept by the panel (admin/data/scenarios.json) and run step by step against the student's API
+// (they change the database). Views: #/scenarios, #/scenarios/new and #/scenarios/edit/<name>.
+import { html, link, iconButton, methodBadge } from "../lib/html.js";
+import { api } from "../lib/api.js";
+import { attempt, toast, needsConfirm } from "../lib/ui.js";
+import { runScenario, runUnit } from "../lib/runner.js";
 import { dataTable } from "../components/table.js";
 import { orderedList } from "../components/ordered-list.js";
-import { results, loadTests, saveScenarios, testTabs, resultBadge, stepsDetail } from "./tests-common.js";
+import { requestForm, requestContext } from "../components/request-form.js";
+import { results, loadTests, loadScenarios, saveScenarios, stepUnit, resultBadge, stepsDetail } from "./tests-common.js";
 
 export function crumbs(params) {
   const [view, name] = params;
-  const base = [{ label: "Tests", href: "#/tests" }, { label: "Scenarios", href: "#/tests/scenarios" }];
+  const base = [{ label: "Scenarios", href: "#/scenarios" }];
   if (view === "edit") return [...base, { label: name }];
   if (view === "new") return [...base, { label: "New scenario" }];
-  return [base[0], { label: "Scenarios" }];
+  return [{ label: "Scenarios" }];
 }
 
 export function parent(params) {
-  return params[0] === "edit" || params[0] === "new" ? "#/tests/scenarios" : null;
+  return params[0] === "edit" || params[0] === "new" ? "#/scenarios" : null;
 }
 
 export function render(main, app, params) {
   const [view, name] = params;
-  if (view === "edit") return editor(main, name);
-  if (view === "new") return editor(main, null);
-  return list(main);
+  if (view === "edit") return editor(main, app, name);
+  if (view === "new") return editor(main, app, null);
+  return list(main, app);
 }
 
-const unitName = (s, exists) => html`<code class="sa-unit ${exists ? "" : "sa-unit--missing"}"
-  title="${exists ? "" : "There is no unit test with this name"}">${s}</code>`;
+/** A step in one line: the request, the user and what it expects */
+function stepLine(step) {
+  const unit = stepUnit(step);
+  if (!unit) return html`<span class="uk-text-danger">${step.missing ? `There is no unit test ${step.missing}` : "Not valid"}</span>`;
+  const r = unit.request;
+  return html`${methodBadge(r.method)} <span class="sa-route">${r.path}</span>
+    ${r.as !== null && r.as !== undefined ? html`<span class="uk-text-muted">as ${r.as}</span>` : ""}
+    → ${unit.expect.status ?? "2xx"}${unit.expect.message ? html` <span class="uk-text-muted">“${unit.expect.message}”</span>` : ""}
+    ${step.description ? html`<span class="uk-text-muted sa-small">· ${step.description}</span>` : ""}`;
+}
 
-async function list(main) {
-  const all = await loadTests();
-  if (!all) return;
-  const names = new Set(all.units.map((u) => u.name));
-  const resultOf = (c) => results.get("scenario:" + c.name);
+async function list(main, app) {
+  const [tests, config] = await Promise.all([loadTests(), attempt(() => api("/config"))]);
+  const data = await loadScenarios(tests?.units);
+  if (!data) return;
+  const scripts = config?.config.database.scripts ?? [];
+  const resultOf = (s) => results.get("scenario:" + s.name);
 
   main.innerHTML = html`
-    <h1>Tests</h1>
-    <p class="uk-text-muted">Scenarios: unit tests run one after another by this panel, against your API (e.g., create, read, change and delete a row).
-      <strong>They change the database</strong>. A step that logs in gives its session to the next steps. The panel
-      saves them in <code>admin/data/scenarios.json</code>.</p>
-    ${testTabs("scenarios", all)}
-    <div class="sa-toolbar">
-      <a class="uk-button uk-button-primary" href="#/tests/scenarios/new">New scenario</a>
-    </div>
+    <h1>Scenarios</h1>
+    <p class="uk-text-muted">A scenario is a sequence of requests to your API, run one after another by this panel (e.g.,
+      create a row, read it, change it and delete it). A step that logs in gives its session to the next steps.
+      <strong>They change the database</strong>${scripts.length ? ": it is created again before running one" : ""}. The
+      panel saves them in <code>admin/data/scenarios.json</code>.</p>
+    <div class="sa-toolbar"><a class="uk-button uk-button-primary" href="#/scenarios/new">New scenario</a></div>
     <div id="grid"></div>`;
 
   const table = dataTable(main.querySelector("#grid"), {
-    rows: all.scenarios, sort: { key: "name", dir: "asc" },
-    empty: all.units.length
-      ? html`No scenarios yet: <a href="#/tests/scenarios/new">create one</a> with the unit tests in the order to run them.`
-      : html`No scenarios yet: they are made of unit tests, and there are none (they come from the endpoints:
-          <a href="#/endpoints">generate them first</a>).`,
+    rows: data.scenarios, sort: { key: "name", dir: "asc" },
+    empty: html`No scenarios yet: <a href="#/scenarios/new">create one</a> with the requests in the order to send them.`,
     columns: [
-      { key: "actions", label: "", filter: false, sortable: false, className: "sa-actions", render: (c) => html`
-        ${iconButton("play", "Run (changes the database)", { action: "run" })}
-        ${iconButton("pencil", "Edit", { href: link("tests", "scenarios", "edit", c.name) })}
+      { key: "actions", label: "", filter: false, sortable: false, className: "sa-actions", render: (s) => html`
+        ${iconButton("play", "Run (it changes the database)", { action: "run" })}
+        ${iconButton("pencil", "Edit", { href: link("scenarios", "edit", s.name) })}
         ${iconButton("trash", "Delete", { action: "delete", danger: true })}` },
       { key: "result", label: "Result", filter: "select",
-        value: (c) => (resultOf(c) ? (resultOf(c).passed ? "PASS" : "FAIL") : ""), render: (c) => resultBadge(resultOf(c)) },
-      { key: "name", label: "Test", render: (c) => html`<strong>${c.name}</strong>` },
-      { key: "steps", label: "Steps", filter: false, value: (c) => c.steps.length },
-      { key: "units", label: "Unit tests", value: (c) => c.steps.join(" "),
-        render: (c) => html`${c.steps.map((s, i) => html`${i ? " → " : ""}${unitName(s, names.has(s))}`)}` },
+        value: (s) => (resultOf(s) ? (resultOf(s).passed ? "PASS" : "FAIL") : ""), render: (s) => resultBadge(resultOf(s)) },
+      { key: "name", label: "Scenario", render: (s) => html`<strong>${s.name}</strong>
+        ${s.description ? html`<br><span class="uk-text-muted sa-small">${s.description}</span>` : ""}` },
+      { key: "steps", label: "Steps", filter: false, value: (s) => s.steps.length },
     ],
-    after: (c) => (resultOf(c) && !resultOf(c).passed ? stepsDetail(resultOf(c).steps) : ""),
-    onAction: async (action, c, button) => {
-      if (action === "run" && needsConfirm(button, "Run? It changes the database")) {
-        const r = await runScenario(c, all.units);
-        results.set("scenario:" + c.name, r);
-        toast(`${c.name}: ${r.passed ? "passed" : "failed"} (${r.steps.filter((s) => s.passed).length} of ${c.steps.length} steps)`,
+    after: (s) => (resultOf(s) && !resultOf(s).passed ? stepsDetail(resultOf(s).steps) : ""),
+    onAction: async (action, s, button) => {
+      const question = scripts.length ? "Create the database again and run it?" : "Run? It changes the database";
+      if (action === "run" && needsConfirm(button, question)) {
+        if (scripts.length && !await attempt(() => api("/database/reload", "POST"))) return;
+        const r = await runScenario(s, s.steps.map(stepUnit));
+        results.set("scenario:" + s.name, r);
+        toast(`${s.name}: ${r.passed ? "passed" : "failed"} (${r.steps.filter((x) => x.passed).length} of ${s.steps.length} steps)`,
           r.passed ? "success" : "warning");
-        table.update(all.scenarios);
+        table.update(data.scenarios);
       }
       if (action === "delete" && needsConfirm(button, "Delete?")) {
-        if (await saveScenarios(all.scenarios.filter((x) => x.name !== c.name), all.scenariosEtag)) {
-          results.delete("scenario:" + c.name);
+        if (await saveScenarios(data.scenarios.filter((x) => x.name !== s.name), data.etag)) {
+          results.delete("scenario:" + s.name);
           toast("Deleted", "success");
-          list(main);
+          list(main, app);
         }
       }
     },
   });
 }
 
-async function editor(main, name) {
-  const all = await loadTests();
-  if (!all) return;
-  const original = name ? all.scenarios.find((c) => c.name === name) : null;
+async function editor(main, app, name) {
+  const [tests, context] = await Promise.all([loadTests(), requestContext(app)]);
+  const data = await loadScenarios(tests?.units);
+  if (!data || !context) return;
+  const original = name ? data.scenarios.find((s) => s.name === name) : null;
   if (name && !original) {
     main.innerHTML = html`<div class="uk-alert uk-alert-danger">There is no scenario ${name}.</div>`;
     return;
   }
-  const unitNames = all.units.map((u) => u.name).sort();
 
   main.innerHTML = html`
     <h1>${original ? `Edit ${original.name}` : "New scenario"}</h1>
     <form id="scenario-form">
       <div class="sa-form">
-        <div class="sa-field"><label class="uk-form-label" for="c-name">Name</label>
-          <input class="uk-input" id="c-name" name="name" value="${original?.name ?? ""}" required pattern="\\w+"></div>
-        <div class="sa-field"><label class="uk-form-label" for="c-desc">Description</label>
-          <input class="uk-input" id="c-desc" name="description" value="${original?.description ?? ""}"></div>
+        <div class="sa-field"><label class="uk-form-label" for="s-name">Name</label>
+          <input class="uk-input" id="s-name" value="${original?.name ?? ""}" required pattern="\\w+"
+            placeholder="e.g. degree_lifecycle"></div>
+        <div class="sa-field sa-span"><label class="uk-form-label" for="s-desc">Description</label>
+          <input class="uk-input" id="s-desc" value="${original?.description ?? ""}"
+            placeholder="e.g. create a degree, read it, change it and delete it"></div>
       </div>
       <h2>Steps</h2>
-      <ol id="c-steps"></ol>
-      <div class="sa-toolbar">
-        <select class="uk-select sa-step-select" id="c-add-name" aria-label="Unit test to add">${options(unitNames)}</select>
-        <button class="uk-button uk-button-default" type="button" id="c-add">Add step</button>
+      <ol id="s-steps"></ol>
+      <div class="sa-block" id="s-step-box">
+        <h3 id="s-step-title">New step</h3>
+        <div class="sa-form">
+          <div class="sa-field sa-span"><label class="uk-form-label" for="s-step-desc">What it does (optional)</label>
+            <input class="uk-input" id="s-step-desc" placeholder="e.g. creates the degree"></div>
+        </div>
+        <div class="sa-form sa-form--wide" id="s-request"></div>
+        <div class="sa-toolbar">
+          <button class="uk-button uk-button-default" type="button" id="s-add">Add the step</button>
+          <button class="uk-button uk-button-default" type="button" id="s-try">Try it</button>
+          <button class="uk-button uk-button-default" type="button" id="s-cancel-step" hidden>Cancel the change</button>
+        </div>
+        <div id="s-step-result" role="status"></div>
       </div>
       <div class="sa-toolbar">
-        <button class="uk-button uk-button-primary" type="submit">Save</button>
-        <a class="uk-button uk-button-default" href="#/tests/scenarios">Cancel</a>
+        <button class="uk-button uk-button-primary" type="submit">Save the scenario</button>
+        <a class="uk-button uk-button-default" href="#/scenarios">Cancel</a>
       </div>
     </form>`;
 
-  const steps = orderedList(main.querySelector("#c-steps"), {
-    items: original?.steps ?? [],
-    empty: "No steps yet: add unit tests below.",
-    render: (s) => html`${unitName(s, unitNames.includes(s))}
-      ${unitNames.includes(s) ? "" : html`<span class="uk-text-danger sa-small">(it does not exist)</span>`}`,
-  });
-  main.querySelector("#c-add").addEventListener("click", () => steps.add(main.querySelector("#c-add-name").value));
   const form = main.querySelector("#scenario-form");
+  const stepDesc = form.querySelector("#s-step-desc");
+  let editingStep = null;  // The index of the step being changed in the box (null: a new one)
+  const request = requestForm(form.querySelector("#s-request"), { context, id: "s" });
+  const steps = orderedList(form.querySelector("#s-steps"), {
+    items: original?.steps ?? [],
+    empty: "No steps yet: write the first request below and add it.",
+    render: stepLine,
+    onEdit: (i) => edit(i),
+  });
+
+  function edit(i) {
+    editingStep = i;
+    const step = steps.items()[i];
+    const unit = stepUnit(step);
+    request.set(unit ? { request: unit.request, expect: unit.expect, definition: step } : null);
+    stepDesc.value = step.description ?? "";
+    form.querySelector("#s-step-title").textContent = `Step ${i + 1}`;
+    form.querySelector("#s-add").textContent = "Update the step";
+    form.querySelector("#s-cancel-step").hidden = false;
+    form.querySelector("#s-step-box").scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+  function clearBox() {
+    editingStep = null;
+    request.set(null);
+    stepDesc.value = "";
+    form.querySelector("#s-step-title").textContent = "New step";
+    form.querySelector("#s-add").textContent = "Add the step";
+    form.querySelector("#s-cancel-step").hidden = true;
+    form.querySelector("#s-step-result").innerHTML = "";
+  }
+  const boxStep = () => request.definition({ description: stepDesc.value.trim() });
+  const boxValid = () => [...form.querySelectorAll("#s-request [required]")].every((f) => f.reportValidity());
+
+  form.querySelector("#s-add").addEventListener("click", () => {
+    if (!boxValid()) return;
+    if (editingStep === null) steps.add(boxStep());
+    else steps.replace(editingStep, boxStep());
+    clearBox();
+  });
+  form.querySelector("#s-cancel-step").addEventListener("click", clearBox);
+  form.querySelector("#s-try").addEventListener("click", async () => {
+    if (!boxValid()) return;
+    const step = await runUnit(stepDesc.value || "Step", stepUnit(boxStep()), { source: "Try step" });
+    form.querySelector("#s-step-result").innerHTML = html`${stepsDetail([step])}`;
+  });
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const { name: newName, description } = Object.fromEntries(new FormData(form));
-    const test = { name: newName.trim(), steps: steps.items() };
-    if (description.trim()) test.description = description.trim();
-    if (!test.steps.length) return toast("Add at least one step", "error");
-    const others = all.scenarios.filter((c) => c.name !== original?.name);
-    if (others.some((c) => c.name === test.name)) return toast(`There is already a scenario named ${test.name}`, "error");
-    others.splice(original ? all.scenarios.indexOf(original) : others.length, 0, test);
-    if (await saveScenarios(others, all.scenariosEtag)) {
+    const scenario = { name: form.querySelector("#s-name").value.trim(), steps: steps.items() };
+    const description = form.querySelector("#s-desc").value.trim();
+    if (description) scenario.description = description;
+    if (!scenario.steps.length) return toast("Add at least one step", "error");
+    const others = data.scenarios.filter((s) => s.name !== original?.name);
+    if (others.some((s) => s.name === scenario.name)) return toast(`There is already a scenario named ${scenario.name}`, "error");
+    others.splice(original ? data.scenarios.indexOf(original) : others.length, 0, scenario);
+    if (await saveScenarios(others, data.etag)) {
       toast("Saved in admin/data/scenarios.json", "success");
-      location.hash = "#/tests/scenarios";
+      location.hash = "#/scenarios";
     }
   });
+  if (!steps.items().length) form.querySelector("#s-step-desc").focus();
 }

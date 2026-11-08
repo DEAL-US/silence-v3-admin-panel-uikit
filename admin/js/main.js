@@ -1,4 +1,4 @@
-// Admin panel of Silence: a single page with one view per hash (#/endpoints, #/tests/scenarios...).
+// Admin panel of Silence: a single page with one view per hash (#/endpoints, #/scenarios/edit/<name>...).
 // Each page exports render(main, app, params), crumbs(params) (the breadcrumb after "Overview",
 // as [{label, href}]) and, for the second-level pages (edit, new, try...), parent(params): where
 // the Back button goes. Optionally, leave(): when another page is shown.
@@ -10,9 +10,11 @@ import * as overview from "./pages/overview.js";
 import * as database from "./pages/database.js";
 import * as endpoints from "./pages/endpoints.js";
 import * as tests from "./pages/tests.js";
+import * as scenarios from "./pages/scenarios.js";
 import * as stats from "./pages/stats.js";
 
-const routes = { "": overview, overview, database, endpoints, tests, stats };
+// tests: the editor of the custom tests (the tests are seen in Endpoints)
+const routes = { "": overview, overview, database, endpoints, tests, scenarios, stats };
 
 // The panel does not watch the project: it reads its state when a page is shown and after each
 // action. A change made outside it (an editor, git...) is seen when the page is shown again.
@@ -109,7 +111,7 @@ function drawTopbar(crumbs, parent) {
 }
 
 function markNav(name) {
-  const active = name === "overview" ? "" : name;
+  const active = name === "overview" ? "" : name === "tests" ? "endpoints" : name;
   for (const a of document.querySelectorAll(".sa-nav a")) {
     const target = a.getAttribute("href").replace(/^#\/?/, "");
     a.parentElement.classList.toggle("uk-active", target === active);

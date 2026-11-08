@@ -264,6 +264,19 @@ body {
   margin-top: 28px;
 }
 
+/* A box inside a form (e.g., the step of a scenario being written) */
+.sa-block {
+  margin: 16px 0 24px;
+  padding: 16px 20px 4px;
+  border: 1px solid var(--sa-border);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.sa-block h3 {
+  margin-top: 0;
+}
+
 /* 7. Tabs ------------------------------------------------------------------------------------ */
 .sa-tabs {
   margin-bottom: 20px;
@@ -529,6 +542,40 @@ body {
 
 .sa-step-select {
   min-width: 18rem;
+}
+
+/* The tests of the endpoints: the button of the Tests column and the opened tests of a row */
+.sa-tests-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  text-decoration: none;
+}
+
+.sa-tests-panel {
+  padding: 8px 0 8px 2rem;
+}
+
+.sa-tests-panel .sa-toolbar {
+  margin-bottom: 8px;
+}
+
+.sa-tests {
+  margin: 0;
+  background: #fff;
+}
+
+.sa-tests td {
+  vertical-align: middle;
+}
+
+.sa-tests td.sa-nowrap {
+  white-space: nowrap;
+}
+
+.sa-tests__failure > td {
+  padding-top: 0;
+  border-top: 0;
 }
 
 /* 14. Overview and statistics ---------------------------------------------------------------- */

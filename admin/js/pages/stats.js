@@ -14,7 +14,7 @@ const GROUPS = {
 
 // What to do to see something in each tab
 const EMPTY = {
-  api: html`No requests yet: <a href="#/endpoints">try an endpoint</a>, <a href="#/tests">run the tests</a> or use your web app.`,
+  api: html`No requests yet: <a href="#/endpoints">try an endpoint</a>, <a href="#/endpoints">run the tests</a> or use your web app.`,
   web: html`No requests yet: open <a href="/" target="_blank">your web app</a>.`,
   silence: "No requests yet.",
 };

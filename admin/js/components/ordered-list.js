@@ -9,10 +9,11 @@ import { html, iconButton } from "../lib/html.js";
  * options.empty: what to say when it is empty
  * options.labels: {up, down, remove}  the titles of the buttons
  * options.onChange: (items) => {}   after every change
+ * options.onEdit: (index) => {}   if given, each item also has a button to edit it
  */
 export function orderedList(list, options) {
   let items = [...(options.items ?? [])];
-  const labels = { up: "Move up", down: "Move down", remove: "Remove", ...options.labels };
+  const labels = { up: "Move up", down: "Move down", remove: "Remove", edit: "Edit", ...options.labels };
   const render = options.render ?? ((item) => html`<code class="sa-unit">${item}</code>`);
   list.classList.add("sa-ordered");
 
@@ -20,6 +21,7 @@ export function orderedList(list, options) {
     list.innerHTML = items.length
       ? html`${items.map((item, i) => html`<li data-i="${i}">${render(item)}
           <span class="sa-toolbar__spacer"></span>
+          ${options.onEdit ? iconButton("pencil", labels.edit, { action: "edit" }) : ""}
           ${iconButton("arrow-up", labels.up, { action: "up" })}${iconButton("arrow-down", labels.down, { action: "down" })}
           ${iconButton("close", labels.remove, { action: "remove", danger: true })}</li>`)}`
       : html`<li class="uk-text-muted sa-ordered__empty">${options.empty ?? "None."}</li>`;
@@ -37,6 +39,7 @@ export function orderedList(list, options) {
     const i = Number(button.closest("li").dataset.i);
     const next = [...items];
     const action = button.dataset.action;
+    if (action === "edit") return options.onEdit?.(i);
     if (action === "remove") next.splice(i, 1);
     if (action === "up" && i > 0) [next[i - 1], next[i]] = [next[i], next[i - 1]];
     if (action === "down" && i < next.length - 1) [next[i + 1], next[i]] = [next[i], next[i + 1]];
@@ -48,5 +51,6 @@ export function orderedList(list, options) {
     items: () => [...items],
     set: (next) => change([...next]),
     add: (item) => change([...items, item]),
+    replace: (i, item) => change(items.map((x, j) => (j === i ? item : x))),
   };
 }
