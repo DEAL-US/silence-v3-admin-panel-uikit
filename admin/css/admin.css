@@ -153,12 +153,20 @@ body {
 }
 
 /* 4. Top bar: the breadcrumb, and the Back button at the other end ---------------------------- */
+/* Fixed at the top of the page while it scrolls, the whole width of the main area */
 .sa-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 970;
   display: flex;
   align-items: center;
   gap: 16px;
   min-height: 30px;
-  margin-bottom: 16px;
+  margin: -32px -40px 24px;
+  padding: 10px 40px;
+  border-bottom: 1px solid var(--sa-border);
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 }
 
 .sa-crumbs {
@@ -733,6 +741,11 @@ body {
 
   .sa-main {
     padding: 16px;
+  }
+
+  .sa-topbar {
+    margin: -16px -16px 16px;
+    padding: 10px 16px;
   }
 
   .sa-console {

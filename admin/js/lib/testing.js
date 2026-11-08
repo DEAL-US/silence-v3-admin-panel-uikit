@@ -8,33 +8,14 @@ export const ORDER = { GET: 0, POST: 1, PUT: 2, DELETE: 3 };
 export const sortForRun = (tests) => [...tests].sort((a, b) =>
   (ORDER[a.request.method] ?? 9) - (ORDER[b.request.method] ?? 9));
 
-function same(expected, actual) {
-  if (typeof expected === "number" && typeof actual === "number") return expected === actual;
-  return JSON.stringify(expected) === JSON.stringify(actual);
-}
-
 /** The failures of a response against what a unit test expects ([] if it passes): status (by
- *  default, any 2xx), count (rows), row (some of its values) and message (a part of it) */
+ *  default, any 2xx) and message (a part of the error message) */
 export function check(expect, status, data) {
   const failures = [];
   if (expect.status !== undefined) {
     if (expect.status !== status) failures.push(`expected status ${expect.status}, got ${status}`);
   } else if (!(status >= 200 && status < 300)) {
     failures.push(`expected a 2xx status, got ${status}`);
-  }
-  if (expect.count !== undefined) {
-    const n = Array.isArray(data) ? data.length : null;
-    if (n !== expect.count) failures.push(`expected ${expect.count} rows, got ${n}`);
-  }
-  if (expect.row !== undefined) {
-    const row = Array.isArray(data) ? data[0] : data;
-    if (!row || typeof row !== "object") {
-      failures.push("expected a row, got none");
-    } else {
-      for (const [k, v] of Object.entries(expect.row)) {
-        if (!same(v, row[k])) failures.push(`expected ${k} = ${JSON.stringify(v)}, got ${JSON.stringify(row[k])}`);
-      }
-    }
   }
   if (expect.message !== undefined) {
     const msg = data && typeof data === "object" && !Array.isArray(data) ? data.message ?? "" : "";
@@ -101,7 +82,7 @@ export const valueText = (v) => (v === undefined ? "" : v === null ? "null" : ty
 /** The definition of a unit test in the short form, as it is saved in tests/*.json:
  *  {description, endpoint, "METHOD /path": body, as, expect}. endpoint: the one it tests
  *  ("GET /departments/$departmentId"); body: {param: value} (undefined left out) or null;
- *  expect: {status, message, count, row} (status undefined: any 2xx) */
+ *  expect: {status, message} (status undefined: any 2xx) */
 export function buildDefinition({ description, endpoint, method, path, body, as, expect }) {
   const def = {};
   if (description) def.description = description;

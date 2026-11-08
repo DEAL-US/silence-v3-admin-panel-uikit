@@ -28,14 +28,11 @@ test("tabs and options", () => {
   assert.match(o, /<option value="two" selected>two<\/option>/);
 });
 
-test("check: the status (2xx by default), rows, a row and a message", () => {
+test("check: the status (2xx by default) and a part of the message", () => {
   assert.deepEqual(check({}, 200, []), []);
   assert.equal(check({}, 404, {}).length, 1);
   assert.deepEqual(check({ status: 404 }, 404, {}), []);
-  assert.deepEqual(check({ count: 2 }, 200, [{}, {}]), []);
-  assert.match(check({ count: 2 }, 200, [{}])[0], /expected 2 rows, got 1/);
-  assert.deepEqual(check({ row: { id: 1, name: "A" } }, 200, [{ id: 1, name: "A", x: 0 }]), []);
-  assert.match(check({ row: { id: 2 } }, 200, { id: 1 })[0], /expected id = 2, got 1/);
+  assert.match(check({ status: 403 }, 200, {})[0], /expected status 403, got 200/);
   assert.deepEqual(check({ status: 400, message: "validSalary" }, 400, { message: "CHECK validSalary failed" }), []);
   assert.equal(check({ message: "x" }, 200, [1]).length, 1);
 });
@@ -96,7 +93,7 @@ test("the unit test editor: routes, typed values and the saved definition", asyn
   assert.deepEqual(["", "null", "true", "12", "-1.5", "x"].map(parseValue), [undefined, null, true, 12, -1.5, "x"]);
   assert.deepEqual([null, 3, "a", undefined].map(valueText), ["null", "3", "a", ""]);
   assert.deepEqual(buildDefinition({ description: "d", endpoint: "PUT /e/$id/salary", method: "PUT", path: "/e/4/salary",
-    body: { salary: -5, other: undefined }, as: "2", expect: { status: 400, message: "validSalary", count: undefined } }),
+    body: { salary: -5, other: undefined }, as: "2", expect: { status: 400, message: "validSalary" } }),
   { description: "d", endpoint: "PUT /e/$id/salary", "PUT /e/4/salary": { salary: -5 }, as: 2,
     expect: { status: 400, message: "validSalary" } });
   assert.deepEqual(buildDefinition({ method: "GET", path: "/e", body: null, as: "", expect: { status: 200 } }),

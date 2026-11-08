@@ -57,7 +57,6 @@ export function describe(method, path, body = {}, data = {}) {
         ? `Generated: ${tables.reduce((n, t) => n + t.generated.length, 0)} endpoints of ${tables.length} tables and views`
         : `Generated: ${tables.reduce((n, t) => n + t.tests, 0)} tests`];
     }
-    if (a === "export") return [kind, `Exported: ${(data.files ?? []).join(", ")}`];
     if (c === "customize") return [kind, `${target} moved to custom${data.file ? ` (${data.file}/${data.name})` : ""}`];
     if (method === "PUT") return [kind, `${target} saved`];
     if (method === "DELETE") return [kind, `${target} deleted`];
