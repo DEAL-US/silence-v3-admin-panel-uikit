@@ -103,8 +103,10 @@ export async function render(main, app, file, name) {
     }
     const body = form.querySelector("#try-body");
     if (body) {
-      // The API never sends the password: it is left out (with it empty, a PUT would change it)
-      body.value = JSON.stringify(Object.fromEntries(bodyParams.filter((p) => p.toLowerCase() !== pwd)
+      // In argon2 mode the API does not send the password: then it is left out (with it empty, a PUT
+      // would change it); in plain mode it comes with the row
+      const hidden = app.status.auth.password_mode === "plain" ? null : pwd;
+      body.value = JSON.stringify(Object.fromEntries(bodyParams.filter((p) => p.toLowerCase() !== hidden)
         .map((p) => [p, valueFor(row, p) ?? ""])), null, 2);
     }
   });

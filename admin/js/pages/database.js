@@ -188,8 +188,9 @@ async function usersTable(body, app, redrawTabs) {
       <p class="uk-text-muted">The table with the users of your application: it enables the login and the logout,
         sessions, roles (a column of the table) and owners. The identifier (e.g., the email) may be in a table that it
         references, as <code>people.email</code> for <code>credentials(person_id → people, password, role)</code>. The
-        users table is a table like the others: its endpoints create, change and delete users (its reads never send the
-        passwords, and its writes encrypt them in argon2 mode); give its writes authentication and roles. Login and
+        users table is a table like the others: its endpoints create, change and delete users (in argon2 mode its reads do
+        not send the passwords and its writes encrypt them; in plain mode they are seen as they are); give its writes
+        authentication and roles. Login and
         passwords are in <a href="#/overview/login">Overview</a>.</p>
       <div class="sa-form">
         <div class="sa-field"><label class="uk-form-label" for="auth-table">Table</label>
