@@ -671,6 +671,16 @@ body {
   padding-left: 1rem;
 }
 
+.sa-console__group {
+  margin-left: 1.5rem;
+  border-left: 2px solid var(--sa-console-line);
+  padding-left: 8px;
+}
+
+.sa-console__line--group > summary .sa-console__source {
+  color: var(--sa-console-info);
+}
+
 .sa-console__line--fail {
   background: rgba(212, 52, 74, 0.15);
 }

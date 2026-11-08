@@ -6,13 +6,13 @@
 //     endpoint, opening a session as a user...);
 //   - changes in the state of the project (database connected or lost, errors in the files...).
 // The panel's entries are kept in sessionStorage while the tab is open; the log is read when the
-// Logs page is shown and with its Refresh button. Each entry may link to where it happened.
+// Logs page is shown and with its Refresh button. Each entry may link to where it happened. The
+// requests of a run of tests or of a scenario go together, in a group with its result.
 import { parseLog, notFromPanel } from "./requestlog.js";
-import { quietReadFile, LOG } from "./files.js";
+import { quietReadFile, deleteFile, LOG } from "./files.js";
 
 const KEY = "silence-admin-console";
-const CLEARED_KEY = "silence-admin-console-cleared";
-const MAX = 500;
+const MAX = 1000;
 const GROUPS = { api: "Your API", silence: "Silence", web: "Your web app" };
 
 function load() {
@@ -31,18 +31,11 @@ function store() {
   }
 }
 
-function cleared() {
-  try {
-    return Number(sessionStorage.getItem(CLEARED_KEY)) || 0;
-  } catch {
-    return 0;
-  }
-}
-
 let entries = load();      // The panel's own entries
 let lines = [];            // All the lines of the log (for the statistics)
 let etag = "";             // The version of the log that was read
 let panelRequests = [];    // Requests of the panel that it does not show (e.g., rows to propose values)
+let group = null;          // The group that the entries go to now (a run of tests or a scenario)
 const listeners = new Set();
 
 const changed = () => listeners.forEach((fn) => fn());
@@ -55,7 +48,7 @@ export function subscribe(fn) {
 
 function add(entry) {
   const at = Date.now();
-  entries.push({ at, time: new Date(at).toLocaleTimeString(), ...entry });
+  entries.push({ at, time: new Date(at).toLocaleTimeString(), ...(group ? { group } : {}), ...entry });
   entries = entries.slice(-MAX);
   store();
   changed();
@@ -70,6 +63,25 @@ export function logRequest(entry) {
  *  source: "Database", "Users", "Endpoints"...; details: shown when the entry is opened. */
 export function logEvent(source, message, { ok = true, details, href } = {}) {
   add({ kind: "event", source, message, ok, response: details, href });
+}
+
+/** From now on, the entries go to a group (e.g., "Run 95 tests"), until endGroup */
+export function beginGroup(source, message, href) {
+  const id = `g${Date.now()}`;
+  add({ kind: "group", id, source, message, ok: true, href });
+  group = id;
+}
+
+/** The end of the group, with its result (e.g., "93 of 95 tests passed") */
+export function endGroup(result, ok) {
+  const entry = entries.find((e) => e.kind === "group" && e.id === group);
+  group = null;
+  if (entry) {
+    entry.message = `${entry.message}: ${result}`;
+    entry.ok = ok;
+    store();
+    changed();
+  }
 }
 
 /** A request of the panel to the student's API that is not shown (nor its line of the log) */
@@ -91,35 +103,43 @@ export async function readLog() {
 /** The log as it was read: its lines (all of them) and its version */
 export const log = () => ({ lines, etag });
 
-/** The log was deleted (it starts again) */
-export function logDeleted() {
+/** Clears everything: deletes the log of requests (the statistics start again) and the panel's entries */
+export async function clearAll() {
+  await readLog();
+  if (lines.length) await deleteFile(LOG, etag, null);
   lines = [];
   etag = "";
-  changed();
-}
-
-/** Forgets what has been seen until now (the log is kept: it is deleted with Reset) */
-export function clearActivity() {
   entries = [];
+  panelRequests = [];
   store();
-  try {
-    sessionStorage.setItem(CLEARED_KEY, String(Date.now()));
-  } catch {
-    // Without storage, cleared until the panel is reloaded
-  }
   changed();
 }
 
-/** The activity in order: the panel's entries and the lines of the log that it did not send */
+/** The activity in order: the panel's entries and the lines of the log that it did not send (the
+ *  entries of a group, inside it: {kind: "group", ..., children}). from: "panel" (the panel's own
+ *  entries), "api", "silence" or "web" (the lines of the log of each one) */
 export function activity() {
-  const since = cleared();
   const sent = [...panelRequests, ...entries.filter((e) => e.kind === "request")];
-  const logged = notFromPanel(lines.filter((l) => l.at >= since), sent).map((l) => ({
-    kind: "request", at: l.at, time: new Date(l.at).toLocaleTimeString(), source: GROUPS[l.group] ?? l.group,
-    method: l.method, path: decodeURIComponent(l.path), status: l.status, ms: l.ms, message: l.message, ok: l.status < 400,
+  const logged = notFromPanel(lines, sent).map((l) => ({
+    kind: "request", from: l.group, at: l.at, time: new Date(l.at).toLocaleTimeString(), source: GROUPS[l.group] ?? l.group,
+    method: l.method, path: decodeURIComponent(l.path), route: l.route, status: l.status, ms: l.ms, message: l.message,
+    ok: l.status < 400,
   }));
-  return [...entries, ...logged].sort((a, b) => (a.at ?? 0) - (b.at ?? 0)).slice(-MAX);
+  const groups = new Map();
+  const top = [];
+  for (const e of entries) {
+    if (e.kind === "group") {
+      const g = { ...e, from: "panel", children: [] };
+      groups.set(e.id, g);
+      top.push(g);
+    } else if (e.group && groups.has(e.group)) {
+      groups.get(e.group).children.push({ ...e, from: "panel" });
+    } else {
+      top.push({ ...e, from: "panel" });
+    }
+  }
+  return [...top, ...logged].sort((a, b) => (a.at ?? 0) - (b.at ?? 0)).slice(-MAX);
 }
 
-/** The panel's entries that failed (for the badge of Logs in the menu) */
-export const failures = () => entries.filter((e) => !e.ok).length;
+/** The panel's entries that failed (for the badge of Logs in the menu; a group counts once) */
+export const failures = () => entries.filter((e) => !e.ok && !e.group).length;

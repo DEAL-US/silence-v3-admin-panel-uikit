@@ -5,6 +5,7 @@
 import { html, link, iconButton, methodBadge } from "../lib/html.js";
 import { api } from "../lib/api.js";
 import { readConfig } from "../lib/files.js";
+import { beginGroup, endGroup } from "../lib/log.js";
 import { attempt, toast, needsConfirm } from "../lib/ui.js";
 import { runScenario, runUnit } from "../lib/runner.js";
 import { dataTable } from "../components/table.js";
@@ -77,7 +78,9 @@ async function list(main, app) {
       const question = scripts.length ? "Create the database again and run it?" : "Run? It changes the database";
       if (action === "run" && needsConfirm(button, question)) {
         if (scripts.length && !await attempt(() => api("/database/reload", "POST"))) return;
+        beginGroup("Scenario", `Run the scenario ${s.name}`, link("scenarios", "edit", s.name));
         const r = await runScenario(s, s.steps.map(stepUnit));
+        endGroup(`${r.passed ? "passed" : "failed"} (${r.steps.filter((x) => x.passed).length} of ${s.steps.length} steps)`, r.passed);
         results.set("scenario:" + s.name, r);
         toast(`${s.name}: ${r.passed ? "passed" : "failed"} (${r.steps.filter((x) => x.passed).length} of ${s.steps.length} steps)`,
           r.passed ? "success" : "warning");

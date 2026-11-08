@@ -8,6 +8,7 @@ import { attempt, toast, needsConfirm } from "../lib/ui.js";
 import { sortForRun, expectText, matchRoute } from "../lib/testing.js";
 import { runUnit } from "../lib/runner.js";
 import { deleteEntry, testsFile } from "../lib/files.js";
+import { beginGroup, endGroup } from "../lib/log.js";
 import { results, loadTests, resultBadge, stepsDetail } from "./tests-common.js";
 
 const endpointKey = (e) => `${e.method} ${e.route}`;
@@ -121,11 +122,15 @@ export function endpointTests({ app, scripts, redraw }) {
     const tokens = new Map();
     let passed = 0;
     const ordered = sortForRun(tests);
+    // More than one: their requests together in the activity, with the result
+    const many = ordered.length > 1;
+    if (many) beginGroup("Tests", `Run ${ordered.length} tests`, "#/endpoints");
     for (const t of ordered) {
       const step = await runUnit(t.name, t, { source: `Test ${t.name}`, tokens });
       results.set("unit:" + t.name, { passed: step.passed, steps: [step] });
       if (step.passed) passed++;
     }
+    if (many) endGroup(`${passed} of ${ordered.length} passed`, passed === ordered.length);
     toast(`${passed} of ${ordered.length} tests passed`, passed === ordered.length ? "success" : "warning");
     redraw();
   }
