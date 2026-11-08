@@ -10,7 +10,7 @@ import { html, link, iconButton, methodBadge, sourceBadge, muted, alertList, opt
 import { api, quietApi } from "../lib/api.js";
 import { attempt, toast, needsConfirm } from "../lib/ui.js";
 import { parseUnit, sortForRun, expectText, routeParams, matchRoute, fillRoute, parseValue, valueText,
-  buildDefinition } from "../lib/testing.js";
+  buildDefinition, queryOf, withQuery } from "../lib/testing.js";
 import { runUnit } from "../lib/runner.js";
 import { dataTable } from "../components/table.js";
 import { results, loadTests, testTabs, resultBadge, stepsDetail } from "./tests-common.js";
@@ -282,6 +282,7 @@ async function unitEditor(main, app, file, name, from) {
     ...Object.fromEntries(Object.entries(current && req ? matchRoute(current.route, req.path.split("?")[0]) ?? {} : {})
       .map(([k, v]) => [`param:${k}`, v])),
     ...Object.fromEntries(Object.entries(req?.body ?? {}).map(([k, v]) => [`body:${k}`, valueText(v)])),
+    ...Object.fromEntries(Object.entries(req ? queryOf(req.path) : {}).map(([k, v]) => [`query:${k}`, v])),
   };
 
   function drawParams() {
@@ -289,13 +290,15 @@ async function unitEditor(main, app, file, name, from) {
     if (!e) return;
     const params = routeParams(e.route);
     const body = e.method === "POST" || e.method === "PUT" ? e.request_body_params ?? [] : [];
+    const query = e.query_params ?? [];
     const input = (kind, p, help) => html`<div class="sa-field"><label class="uk-form-label" for="t-${kind}-${p}">${help}</label>
       <input class="uk-input" id="t-${kind}-${p}" name="${kind}:${p}" value="${typed[`${kind}:${p}`] ?? ""}"
         ${kind === "param" ? "required" : html`placeholder="(left out if empty)"`}></div>`;
     form.querySelector("#t-params").innerHTML = html`
       ${params.map((p) => input("param", p, `$${p} (in the route)`))}
+      ${query.map((p) => input("query", p, `${p} (in the query string)`))}
       ${body.map((p) => input("body", p, `${p} (in the body)`))}
-      ${!params.length && !body.length ? html`<p class="uk-text-muted sa-small">This endpoint has no params.</p>` : ""}`;
+      ${!params.length && !body.length && !query.length ? html`<p class="uk-text-muted sa-small">This endpoint has no params.</p>` : ""}`;
   }
 
   /** The test of the form: its definition (as it is saved) */
@@ -308,7 +311,7 @@ async function unitEditor(main, app, file, name, from) {
       description: v.description.trim(),
       endpoint: e.silence || e.written ? base?.definition.endpoint : key(e),
       method: e.method,
-      path: fillRoute(e.route, params),
+      path: withQuery(fillRoute(e.route, params), Object.fromEntries((e.query_params ?? []).map((p) => [p, v[`query:${p}`]]))),
       body: bodyParams && Object.fromEntries(bodyParams.map((p) => [p, parseValue(v[`body:${p}`])])),
       as: v.as,
       expect: { status: parseValue(v.status), message: v.message.trim() || undefined },

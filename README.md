@@ -60,6 +60,10 @@ Behaviour worth knowing:
   Scenarios (sequences of unit tests, by name) belong only to the panel
   (`/panel-data/scenarios`, that is, the project's `admin/data/scenarios.json`; the old
   `composite_tests.json` is read if there is no other).
+- Database → Users table: the identifier may be in a referenced table (`people.email`). The
+  Users tab shows the passwords stored as plain text (plain mode), to try the login.
+- Endpoints may declare `query_params` (the filters of the query string that the SQL uses); the
+  endpoint editor, the try page and the test editor have a field for each one.
 - The console shows all the activity of the panel, with the failures highlighted and a link
   from each line to where it happened; kept in `sessionStorage`.
 

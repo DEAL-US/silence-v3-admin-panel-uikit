@@ -100,3 +100,11 @@ test("the unit test editor: routes, typed values and the saved definition", asyn
     { "GET /e": null, expect: 200 });
   assert.deepEqual(buildDefinition({ method: "DELETE", path: "/e/1", body: null, expect: {} }), { "DELETE /e/1": null });
 });
+
+test("the query string of the tests", async () => {
+  const { queryOf, withQuery } = await import("../admin/js/lib/testing.js");
+  assert.deepEqual(queryOf("/students/above?minAverage=7&x=a%20b"), { minAverage: "7", x: "a b" });
+  assert.deepEqual(queryOf("/students"), {});
+  assert.equal(withQuery("/students/above", { minAverage: "7", empty: "" }), "/students/above?minAverage=7");
+  assert.equal(withQuery("/students", {}), "/students");
+});

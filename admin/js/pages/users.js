@@ -37,7 +37,10 @@ export async function usersTab(main, app) {
   ];
   if (auth.role) columns.push({ key: "role", label: auth.role, filter: "select", value: (u) => u.role ?? "" });
   if (auth.active) columns.push({ key: "active", label: auth.active, filter: "select", value: (u) => (u.active ? "yes" : "no") });
-  columns.push({ key: "password", label: "Password", filter: "select", render: (u) => PASSWORDS[u.password] });
+  // The passwords stored as plain text (plain mode, for practice databases) are shown, to try the login
+  columns.push({ key: "password", label: "Password", filter: "select",
+    render: (u) => (u.plainPassword !== null && u.plainPassword !== undefined
+      ? html`<code>${u.plainPassword}</code>` : PASSWORDS[u.password]) });
 
   dataTable(main.querySelector("#grid"), {
     columns, rows: res.users, sort: { key: "id", dir: "asc" }, empty: "The users table is empty.",

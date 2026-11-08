@@ -73,6 +73,9 @@ export async function render(main, app, file, name) {
               placeholder="${values.length ? `e.g. ${values[0]}` : ""}">
             <datalist id="try-${p}-values">${values.map((v) => html`<option value="${v}">`)}</datalist></div>`;
         })}
+        ${(e.query_params ?? []).map((p) => html`<div class="sa-field"><label class="uk-form-label" for="try-q-${p}">${p}
+          <span class="uk-text-muted">(query string)</span></label>
+          <input class="uk-input" id="try-q-${p}" name="__q:${p}" required></div>`)}
         ${e.method === "GET" ? html`<div class="sa-field"><label class="uk-form-label" for="try-query">Query string</label>
           <input class="uk-input" id="try-query" name="__query" placeholder="_sort=name&_limit=5"></div>` : ""}
       </div>
@@ -110,7 +113,9 @@ export async function render(main, app, file, name) {
     const v = Object.fromEntries(new FormData(form));
     let path = e.route;
     for (const p of params) path = path.replace("$" + p, encodeURIComponent(v[p]));
-    if (v.__query) path += "?" + v.__query.replace(/^\?/, "");
+    const query = [new URLSearchParams(Object.fromEntries((e.query_params ?? []).map((p) => [p, v[`__q:${p}`]]))).toString(),
+      (v.__query ?? "").replace(/^\?/, "")].filter(Boolean).join("&");
+    if (query) path += `?${query}`;
     let body;
     if (v.__body?.trim()) {
       try {

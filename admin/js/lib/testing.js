@@ -62,6 +62,18 @@ export function matchRoute(route, path) {
   return m ? Object.fromEntries(names.map((n, i) => [n, decodeURIComponent(m[i + 1])])) : null;
 }
 
+/** The params of the query string of a path ({minAverage: "7"}) */
+export function queryOf(path) {
+  const query = path.split("?")[1] ?? "";
+  return Object.fromEntries([...new URLSearchParams(query)]);
+}
+
+/** A path with a query string of the given params (the empty ones left out) */
+export function withQuery(path, values) {
+  const query = new URLSearchParams(Object.entries(values).filter(([, v]) => v !== undefined && v !== ""));
+  return query.toString() ? `${path}?${query}` : path;
+}
+
 /** A route with its params filled in */
 export const fillRoute = (route, values) => route.replace(/\$(\w+)/g, (_, n) => encodeURIComponent(values[n] ?? ""));
 
