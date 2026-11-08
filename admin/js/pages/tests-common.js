@@ -6,9 +6,8 @@ import { attempt } from "../lib/ui.js";
 import { parseUnit } from "../lib/testing.js";
 import { readFile, quietReadFile, writeFile, listFiles, panelFile } from "../lib/files.js";
 
-// The panel's data with the scenarios (admin/data/scenarios.json; before, composite_tests.json)
+// The panel's data with the scenarios
 const SCENARIOS = panelFile("scenarios");
-const OLD_SCENARIOS = panelFile("composite_tests");
 
 /** The results of the last runs: "unit:<name>" or "scenario:<name>" → {passed, steps} */
 export const results = new Map();
@@ -44,32 +43,17 @@ export async function loadTests() {
   });
 }
 
-/** A scenario of an older panel: its steps were the names of unit tests (now, the requests) */
-function upgrade(scenario, units) {
-  return {
-    ...scenario,
-    steps: scenario.steps.map((step) => {
-      if (typeof step !== "string") return step;
-      const unit = units.find((u) => u.name === step);
-      return unit ? { ...unit.definition, description: unit.description || step } : { missing: step };
-    }),
-  };
-}
-
 /** The scenarios (the panel's data in admin/data/), each step a request as a unit test defines it */
-export async function loadScenarios(units) {
+export async function loadScenarios() {
   const saved = await attempt(() => readFile(SCENARIOS));
   if (!saved) return null;
-  const old = saved.data === null ? await quietReadFile(OLD_SCENARIOS).catch(() => null) : null;
-  const data = saved.data ?? old?.data;
-  return { scenarios: (Array.isArray(data) ? data : []).map((s) => upgrade(s, units ?? [])), etag: saved.etag };
+  return { scenarios: Array.isArray(saved.data) ? saved.data : [], etag: saved.etag };
 }
 
 export const saveScenarios = (list, etag) => attempt(() => writeFile(SCENARIOS, list, etag ?? ""));
 
 /** A step of a scenario as a unit test (null if it is not valid) */
 export function stepUnit(step) {
-  if (step.missing) return null;
   try {
     return parseUnit(step);
   } catch {

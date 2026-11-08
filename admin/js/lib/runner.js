@@ -46,7 +46,7 @@ export async function runScenario(scenario, units) {
     const name = scenario.steps[index].description || `Step ${index + 1}`;
     if (!unit) {
       steps.push({ index, test: name, method: "", path: "", passed: false,
-        failures: [scenario.steps[index].missing ? `There is no unit test ${scenario.steps[index].missing}` : "This step is not valid"] });
+        failures: ["This step is not valid"] });
       break;
     }
     const step = await runUnit(name, unit, { source: `Scenario ${scenario.name}`, tokens, token, index,

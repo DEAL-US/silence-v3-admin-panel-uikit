@@ -11,7 +11,7 @@ import { runScenario, runUnit } from "../lib/runner.js";
 import { dataTable } from "../components/table.js";
 import { orderedList } from "../components/ordered-list.js";
 import { requestForm, requestContext } from "../components/request-form.js";
-import { results, loadTests, loadScenarios, saveScenarios, stepUnit, resultBadge, stepsDetail } from "./tests-common.js";
+import { results, loadScenarios, saveScenarios, stepUnit, resultBadge, stepsDetail } from "./tests-common.js";
 
 export function crumbs(params) {
   const [view, name] = params;
@@ -35,7 +35,7 @@ export function render(main, app, params) {
 /** A step in one line: the request, the user and what it expects */
 function stepLine(step) {
   const unit = stepUnit(step);
-  if (!unit) return html`<span class="uk-text-danger">${step.missing ? `There is no unit test ${step.missing}` : "Not valid"}</span>`;
+  if (!unit) return html`<span class="uk-text-danger">Not valid</span>`;
   const r = unit.request;
   return html`${methodBadge(r.method)} <span class="sa-route">${r.path}</span>
     ${r.as !== null && r.as !== undefined ? html`<span class="uk-text-muted">as ${r.as}</span>` : ""}
@@ -44,8 +44,7 @@ function stepLine(step) {
 }
 
 async function list(main, app) {
-  const [tests, config] = await Promise.all([loadTests(), attempt(() => readConfig())]);
-  const data = await loadScenarios(tests?.units);
+  const [data, config] = await Promise.all([loadScenarios(), attempt(() => readConfig())]);
   if (!data) return;
   const scripts = config?.config.database.scripts ?? [];
   const resultOf = (s) => results.get("scenario:" + s.name);
@@ -98,8 +97,7 @@ async function list(main, app) {
 }
 
 async function editor(main, app, name) {
-  const [tests, context] = await Promise.all([loadTests(), requestContext(app)]);
-  const data = await loadScenarios(tests?.units);
+  const [data, context] = await Promise.all([loadScenarios(), requestContext(app)]);
   if (!data || !context) return;
   const original = name ? data.scenarios.find((s) => s.name === name) : null;
   if (name && !original) {
