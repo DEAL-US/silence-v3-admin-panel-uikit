@@ -1,6 +1,6 @@
 // The tests in the grid of the endpoints: each endpoint with its tests (the generated ones and the
 // custom ones), a column with how many there are and how they went, its tests under its row when
-// they are opened, and the tests that are not of an endpoint (e.g., login and register) apart.
+// they are opened, and the tests that are not of an endpoint (e.g., login and logout) apart.
 // A generated test that fails offers a custom test from it, which expects what the API answered.
 import { html, link, iconButton, methodBadge, sourceBadge, muted } from "../lib/html.js";
 import { api } from "../lib/api.js";
@@ -103,11 +103,11 @@ export function endpointTests({ app, scripts, redraw }) {
     </tbody></table>`;
   }
 
-  /** The tests that are not of an endpoint (e.g., login and register, Silence's) */
+  /** The tests that are not of an endpoint (e.g., login and logout, Silence's) */
   function othersSection() {
     return others.length ? html`<h2>Other tests</h2>
       <p class="uk-text-muted sa-small">Tests of requests that are not of one of your endpoints (e.g., Silence's login and
-        register).</p>${rows(others)}` : "";
+        logout).</p>${rows(others)}` : "";
   }
 
   function summary() {

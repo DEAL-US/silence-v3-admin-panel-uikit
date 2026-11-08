@@ -185,12 +185,12 @@ async function usersTable(body, app, redrawTabs) {
 
   body.innerHTML = html`
     <form id="auth-form">
-      <p class="uk-text-muted">The table with the users of your application: it enables the login and the register,
+      <p class="uk-text-muted">The table with the users of your application: it enables the login and the logout,
         sessions, roles (a column of the table) and owners. The identifier (e.g., the email) may be in a table that it
-        references, as <code>people.email</code> for <code>credentials(person_id → people, password, role)</code>; then
-        there is no register. The users table only has its reads (<code>GET</code>, without the passwords); to change
-        users, write a custom endpoint with authentication and roles. Login, register and passwords are in
-        <a href="#/overview/login">Overview</a>.</p>
+        references, as <code>people.email</code> for <code>credentials(person_id → people, password, role)</code>. The
+        users table is a table like the others: its endpoints create, change and delete users (its reads never send the
+        passwords, and its writes encrypt them in argon2 mode); give its writes authentication and roles. Login and
+        passwords are in <a href="#/overview/login">Overview</a>.</p>
       <div class="sa-form">
         <div class="sa-field"><label class="uk-form-label" for="auth-table">Table</label>
           <select class="uk-select" id="auth-table" name="table">${options(relations.map((t) => t.name), auth.table, "(not linked)")}</select></div>
@@ -231,13 +231,7 @@ async function usersTable(body, app, redrawTabs) {
       return;
     }
     if (!v.table) Object.assign(v, { identifier: "", password: "", role: "", active: "" });
-    if (v.identifier?.includes(".")) v.register = false;  // A new user would need a row in the other table first
     if (await attempt(() => saveConfig("auth", v), "Saved in silence.json")) {
-      // The users table only has its reads (GET): its endpoints are generated again, if there are any
-      if (v.table && app.status.endpoints.auto) {
-        await attempt(() => api("/endpoints/generate", "POST", { tables: [v.table] }),
-          `The endpoints of ${v.table} are only its reads now`);
-      }
       await app.refreshStatus();
       redrawTabs();  // The Users tab is enabled (or disabled) as the table is linked (or not)
     }

@@ -14,7 +14,7 @@ const STATUSES = [["", "Any 2xx (it works)"], [200, "200 OK"], [201, "201 Create
 export const endpointKey = (e) => `${e.method} ${e.route}`;
 
 /** What a request needs to be written: the endpoints that it can call (the student's, and login
- *  and register, Silence's), the API prefix and the users. null if Silence cannot be reached. */
+ *  and logout, Silence's), the API prefix and the users. null if Silence cannot be reached. */
 export async function requestContext(app) {
   const eps = await attempt(() => loadEndpoints({ quiet: true }));
   if (!eps) return null;
@@ -22,14 +22,13 @@ export async function requestContext(app) {
   const auth = app.status.auth;
   let users = [];
   if (auth.linked) {
-    const [schema, list] = await Promise.all([quietApi("/schema").catch(() => null), quietApi("/users").catch(() => null)]);
-    users = list?.users ?? [];
-    const table = schema?.relations.find((r) => r.name.toLowerCase() === auth.table.toLowerCase());
-    const columns = (table?.columns ?? []).filter((c) => !c.autoIncrement && !c.generated).map((c) => c.name);
+    users = (await quietApi("/users").catch(() => null))?.users ?? [];
     const silence = (route, params) => ({ method: "POST", route, name: route.slice(1), table: auth.table,
       request_body_params: params, silence: true });
-    if (auth.login) endpoints.push(silence("/login", [auth.identifier.split(".").pop(), auth.password]));
-    if (auth.register && !auth.identifier.includes(".")) endpoints.push(silence("/register", columns));
+    if (auth.login) {
+      endpoints.push(silence("/login", [auth.identifier.split(".").pop(), auth.password]));
+      endpoints.push(silence("/logout", []));
+    }
   }
   return { apiPrefix: eps.apiPrefix, endpoints, users };
 }

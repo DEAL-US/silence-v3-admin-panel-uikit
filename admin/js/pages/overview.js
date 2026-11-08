@@ -1,5 +1,5 @@
 // Overview, in tabs: #/ (getting started: the steps, the problems and the app), and the settings
-// of silence.json: #/overview/login (login, register and passwords), #/overview/server and
+// of silence.json: #/overview/login (login, logout and passwords), #/overview/server and
 // #/overview/advanced (database scripts, sessions, JS API, debug, admin panel). The database
 // connection and the users table are in Database. Only the values that change are saved.
 import { html, tabs, switchRow, alertList } from "../lib/html.js";
@@ -59,10 +59,10 @@ function start(body, s) {
         "#/database/connection", dbOk ? "Change" : "Set up")}
       ${step(a.linked, "Link the users table (optional)",
         a.linked ? html`Users in <code>${a.table}</code>, identified by <code>${a.identifier}</code>.`
-          : "Needed for login, register, sessions, roles and owners.",
+          : "Needed for login, sessions, roles and owners.",
         "#/database/auth", a.linked ? "Change" : "Link")}
-      ${step(a.linked && (a.login || a.register), "Login and passwords (optional)",
-        a.linked ? `Login ${a.login ? "on" : "off"}, register ${a.register ? "on" : "off"}; passwords `
+      ${step(a.linked && a.login, "Login and passwords (optional)",
+        a.linked ? `Login ${a.login ? "on" : "off"}; passwords `
           + `${a.password_mode === "argon2" ? "encrypted (argon2)" : "as plain text"}.` : "After linking the users table.",
         "#/overview/login", "Change")}
       ${step(s.endpoints.count > 0, "Generate the endpoints",
@@ -106,17 +106,16 @@ const FORMS = {
     return html`
       ${linked ? "" : html`<div class="uk-alert uk-alert-warning">They need the users table: link it in
         <a href="#/database/auth">Database</a>.</div>`}
-      <h3>Login and register</h3>
-      ${toggle("auth", "login", a.login, html`Login: <code>POST ${prefix}/login</code>`, !linked)}
-      ${toggle("auth", "register", a.register, a.identifier.includes(".")
-        ? html`Register: not available, because the identifier (<code>${a.identifier}</code>) is in another table`
-        : html`Register: <code>POST ${prefix}/register</code>`, !linked || a.identifier.includes("."))}
-      <div class="sa-form">${field("auth", "default_role", "Role of the new users (register)", a.default_role, { disabled: !linked })}</div>
+      <h3>Login and logout</h3>
+      ${toggle("auth", "login", a.login, html`Login and logout: <code>POST ${prefix}/login</code> and
+        <code>POST ${prefix}/logout</code>`, !linked)}
+      ${help(html`There is no register: the users are rows of <code>${a.table || "the users table"}</code>, created,
+        changed and deleted with its endpoints, as any other table (give them authentication and roles).`)}
       <h3>Passwords</h3>
       ${help(html`How they are stored in the password column. Changing it does not convert the stored ones: set them
         again in <a href="#/database/users">Database → Users</a>.`)}
       ${radio("auth", "password_mode", "argon2", a.password_mode === "argon2",
-        html`Encrypted (<strong>argon2</strong>): the register stores the hash; the login compares with it`)}
+        html`Encrypted (<strong>argon2</strong>): the endpoints of the users table store the hash; the login compares with it`)}
       ${radio("auth", "password_mode", "plain", a.password_mode === "plain",
         html`<strong>Plain text</strong>: as they are (only for practice databases)`)}`;
   },

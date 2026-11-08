@@ -50,7 +50,7 @@ function apiReport(g) {
 }
 
 /** The statistics of the lines: the student's API ("api", by endpoint), what Silence gives to the
- *  app ("silence": login, register, the API summary) and the web app ("web", by file) */
+ *  app ("silence": login, logout, the API summary) and the web app ("web", by file) */
 export function summarize(lines) {
   const groups = { api: apiGroup(), silence: apiGroup() };
   const web = { requests: 0, notFound: 0, bytes: 0, byKind: {}, files: new Map() };

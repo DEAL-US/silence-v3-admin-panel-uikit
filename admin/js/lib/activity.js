@@ -19,11 +19,9 @@ function describeConfig(section, body) {
     }
     const said = [];
     if ("login" in body) said.push(`login ${onOff(body.login)}`);
-    if ("register" in body) said.push(`register ${onOff(body.register)}`);
     if ("password_mode" in body) {
       said.push(`passwords ${body.password_mode === "argon2" ? "encrypted (argon2)" : "as plain text"}`);
     }
-    if ("default_role" in body) said.push(`role of the new users ${body.default_role ? `'${body.default_role}'` : "none"}`);
     if ("token_max_age" in body) said.push(`sessions of ${body.token_max_age} s`);
     return ["Users", `Saved in silence.json: ${said.join(", ")}`];
   }

@@ -70,7 +70,7 @@ function drawLogsBadge() {
 function reportChanges(prev, s) {
   const db = (x) => (x.database.error ? `not connected: ${x.database.error}` : `connected to ${x.database.name}`);
   const users = (x) => (x.auth.linked
-    ? `users table ${x.auth.table} linked (login ${x.auth.login ? "on" : "off"}, register ${x.auth.register ? "on" : "off"}, `
+    ? `users table ${x.auth.table} linked (login ${x.auth.login ? "on" : "off"}, `
       + `passwords ${x.auth.password_mode})`
     : "users table not linked");
   if (prev) {

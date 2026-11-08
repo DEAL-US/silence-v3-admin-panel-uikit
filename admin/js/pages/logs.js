@@ -6,7 +6,7 @@
 //                             requests of an endpoint or of a file (from a row of the statistics);
 //   #/logs/api                Your API: the requests to the student's endpoints, by endpoint;
 //   #/logs/web                Your web app: the files of web/, by file;
-//   #/logs/silence            Silence's API: what Silence gives to the app (login, register, GET /api).
+//   #/logs/silence            Silence's API: what Silence gives to the app (login, logout, GET /api).
 // The tests count too; the panel's own requests to Silence's admin API do not. "Clear the log"
 // deletes the log and the panel's entries: the activity and the statistics start again.
 import { html, json, link, tabs, methodBadge, statusClass, muted, options } from "../lib/html.js";
@@ -22,7 +22,7 @@ const TABS = {
     + "does in Silence, newest first. Open a line to see its details"],
   api: ["Your API", "The endpoints of endpoints/*.json, also when the tests call them. Click a route to see its requests"],
   web: ["Your web app", "The files of web/. Click a file to see its requests"],
-  silence: ["Silence's API", "What Silence gives to your app: login, register and the API summary (GET /api). Click a "
+  silence: ["Silence's API", "What Silence gives to your app: login, logout and the API summary (GET /api). Click a "
     + "route to see its requests"],
 };
 
