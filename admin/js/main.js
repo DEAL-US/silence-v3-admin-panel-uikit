@@ -1,4 +1,4 @@
-// Admin panel of Silence: a single page with one view per hash (#/endpoints, #/tests/composite...).
+// Admin panel of Silence: a single page with one view per hash (#/endpoints, #/tests/scenarios...).
 // Each page exports render(main, app, params), crumbs(params) (the breadcrumb after "Overview",
 // as [{label, href}]) and, for the second-level pages (edit, new, try...), parent(params): where
 // the Back button goes. Optionally, leave(): when another page is shown.

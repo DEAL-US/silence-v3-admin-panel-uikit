@@ -1,32 +1,37 @@
-// What the pages of the unit and composite tests share: loading them, their tabs, the results of
+// What the pages of the unit tests and scenarios share: loading them, their tabs, the results of
 // the last runs (while the panel is open) and how a result is shown.
 import { html, tabs, methodBadge, statusClass, json } from "../lib/html.js";
-import { api } from "../lib/api.js";
+import { api, quietApi } from "../lib/api.js";
 import { attempt } from "../lib/ui.js";
 
-const COMPOSITE_DATA = "composite_tests";
+// The panel's data with the scenarios (admin/data/scenarios.json; before, composite_tests.json)
+const SCENARIOS = "scenarios";
+const OLD_SCENARIOS = "composite_tests";
 
-/** The results of the last runs: "unit:<name>" or "composite:<name>" → {passed, steps} */
+/** The results of the last runs: "unit:<name>" or "scenario:<name>" → {passed, steps} */
 export const results = new Map();
 
-/** The unit tests (from Silence) and the composite ones (from the panel's data in admin/data/) */
+/** The unit tests (from Silence) and the scenarios (from the panel's data in admin/data/) */
 export async function loadTests() {
-  const [unitData, composite] = await Promise.all([attempt(() => api("/tests")), attempt(() => api(`/panel-data/${COMPOSITE_DATA}`))]);
-  if (!unitData || !composite) return null;
+  const [unitData, saved] = await Promise.all([attempt(() => api("/tests")), attempt(() => api(`/panel-data/${SCENARIOS}`))]);
+  if (!unitData || !saved) return null;
+  // The scenarios of an older panel, until they are saved again (then in scenarios.json)
+  const old = saved.data === null ? await quietApi(`/panel-data/${OLD_SCENARIOS}`).catch(() => null) : null;
+  const data = saved.data ?? old?.data;
   return {
     unitData,
     units: unitData.tests,
-    composites: Array.isArray(composite.data) ? composite.data : [],
-    compositeEtag: composite.etag,
+    scenarios: Array.isArray(data) ? data : [],
+    scenariosEtag: saved.etag,
   };
 }
 
-export const saveComposites = (list, etag) => attempt(() => api(`/panel-data/${COMPOSITE_DATA}`, "PUT", list, etag ?? ""));
+export const saveScenarios = (list, etag) => attempt(() => api(`/panel-data/${SCENARIOS}`, "PUT", list, etag ?? ""));
 
 export function testTabs(active, all) {
   return tabs([
     { key: "units", label: `Unit tests (${all.units.length})`, href: "#/tests" },
-    { key: "composite", label: `Composite (${all.composites.length})`, href: "#/tests/composite" },
+    { key: "scenarios", label: `Scenarios (${all.scenarios.length})`, href: "#/tests/scenarios" },
   ], active);
 }
 

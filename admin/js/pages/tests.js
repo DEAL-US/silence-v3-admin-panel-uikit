@@ -1,24 +1,24 @@
 // Tests. Unit tests: the generated ones (Silence computes them from the endpoints whenever they are
-// asked for, so they are always up to date) and the custom ones (tests/<table>.json), which
-// replace the generated ones with their name. Composite tests (sequences of unit tests, by name):
-// the panel keeps them (composite.js). Silence does not run tests: the panel runs them against the
+// asked for, so they are always up to date; they are not edited, but they can be duplicated to
+// start a custom one) and the custom ones (tests/<table>.json), e.g., for the business rules. Scenarios (sequences of unit tests, by name):
+// the panel keeps them (scenarios.js). Silence does not run tests: the panel runs them against the
 // student's API (they change the database: the database is reloaded first, if it can be).
-// Views: #/tests (the unit tests, all in one grid), #/tests/new, #/tests/edit/<file>/<name> and
-// #/tests/composite/... (composite.js).
+// Views: #/tests (the unit tests, all in one grid), #/tests/new (/<name>: a copy of that test),
+// #/tests/edit/<file>/<name> (a custom one) and
+// #/tests/scenarios/... (scenarios.js).
 import { html, link, iconButton, methodBadge, sourceBadge, muted, alertList, options } from "../lib/html.js";
 import { api, quietApi } from "../lib/api.js";
 import { attempt, toast, needsConfirm } from "../lib/ui.js";
 import { parseUnit, sortForRun, expectText, routeParams, matchRoute, fillRoute, parseValue, valueText,
   buildDefinition } from "../lib/testing.js";
 import { runUnit } from "../lib/runner.js";
-import { logEvent } from "../components/console.js";
 import { dataTable } from "../components/table.js";
 import { results, loadTests, testTabs, resultBadge, stepsDetail } from "./tests-common.js";
-import * as composite from "./composite.js";
+import * as scenarios from "./scenarios.js";
 
 export function crumbs(params) {
   const [view, , name] = params;
-  if (view === "composite") return composite.crumbs(params.slice(1));
+  if (view === "scenarios") return scenarios.crumbs(params.slice(1));
   const base = [{ label: "Tests", href: "#/tests" }];
   if (view === "edit") return [...base, { label: `Edit ${name}` }];
   if (view === "new") return [...base, { label: "New unit test" }];
@@ -27,15 +27,15 @@ export function crumbs(params) {
 
 export function parent(params) {
   const [view] = params;
-  if (view === "composite") return composite.parent(params.slice(1));
+  if (view === "scenarios") return scenarios.parent(params.slice(1));
   return view === "edit" || view === "new" ? "#/tests" : null;
 }
 
 export async function render(main, app, params) {
   const [view, file, name] = params;
-  if (view === "composite") return composite.render(main, app, params.slice(1));
+  if (view === "scenarios") return scenarios.render(main, app, params.slice(1));
   if (view === "edit") return unitEditor(main, app, file, name);
-  if (view === "new") return unitEditor(main, app, null, null);
+  if (view === "new") return unitEditor(main, app, null, null, file);
   return unitList(main, app);
 }
 
@@ -57,7 +57,8 @@ async function unitList(main, app) {
   main.innerHTML = html`
     <h1>Tests</h1>
     <p class="uk-text-muted">Unit tests: one request each, and the status it should get. Silence generates them from the
-      endpoints (they follow every change of the endpoints); a custom test with the name of a generated one replaces it.
+      endpoints (they follow every change of the endpoints); yours, for example for the business rules, are the custom ones
+      (<em>Duplicate</em> a generated test to start one from it).
       The panel sends them to your API in the order GET, POST, PUT, DELETE. <strong>They change the database</strong>:
       ${scripts.length ? "it is created again before running them, so they always start from the original data."
         : html`to start always from the original data, choose the scripts that create it in
@@ -80,9 +81,10 @@ async function unitList(main, app) {
     columns: [
       { key: "actions", label: "", filter: false, sortable: false, className: "sa-actions", render: (t) => html`
         ${iconButton("play", "Run", { action: "run" })}
-        ${iconButton("pencil", t.source === "auto" ? "Edit (saving it makes it custom)" : "Edit",
-          { href: link("tests", "edit", t.file, t.name) })}
-        ${t.source === "custom" ? iconButton("trash", "Delete", { action: "delete", danger: true }) : ""}` },
+        ${t.source === "auto"
+          ? iconButton("copy", "Duplicate (a new custom test from this one)", { href: link("tests", "new", t.name) })
+          : html`${iconButton("pencil", "Edit", { href: link("tests", "edit", t.file, t.name) })}
+            ${iconButton("trash", "Delete", { action: "delete", danger: true })}`}` },
       { key: "result", label: "Result", filter: "select",
         value: (t) => (resultOf(t) ? (resultOf(t).passed ? "PASS" : "FAIL") : ""), render: (t) => resultBadge(resultOf(t)) },
       { key: "name", label: "Test", render: (t) => html`<strong>${t.name}</strong>` },
@@ -113,15 +115,10 @@ async function unitList(main, app) {
     await app.refreshStatus();
   }
 
-  /** Deletes a custom test: if it replaced a generated one, the generated one is seen again */
   async function remove(t) {
     if (!await attempt(() => api(`/tests/${t.file}/${t.name}`, "DELETE", undefined, all.unitData.files[t.file] ?? ""), "Deleted")) return;
     results.delete("unit:" + t.name);
-    await refresh();
-    if (all.units.some((x) => x.name === t.name && x.source === "auto")) {
-      toast(`${t.name}: the generated test is used again`, "success");
-      logEvent("Tests", `${t.name} deleted from custom: the generated test is used again`, { href: "#/tests" });
-    }
+    refresh();
   }
 
   function summary() {
@@ -165,7 +162,7 @@ async function unitList(main, app) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Create or edit a unit test (a generated one becomes custom when it is saved)
+// Create (or duplicate) and edit a custom unit test
 ///////////////////////////////////////////////////////////////////////////////
 
 // The common answers, to choose what a test expects
@@ -191,36 +188,40 @@ async function callableEndpoints(app) {
   return { apiPrefix: eps.apiPrefix, endpoints: list };
 }
 
-/** A unit test as a form, as an endpoint: the endpoint it calls (its params and body as fields),
- *  the user, and what it expects. Its file is the one of the endpoint's table, and its name is
- *  proposed. The JSON that is saved is shown, read-only. */
-async function unitEditor(main, app, file, name) {
+/** A custom unit test as a form, as an endpoint: the endpoint it calls (its params and body as
+ *  fields), the user, and what it expects. Its file is the one of the endpoint's table, and its
+ *  name is proposed. The JSON that is saved is shown, read-only. from: the name of the test that
+ *  a new one copies (Duplicate). */
+async function unitEditor(main, app, file, name, from) {
   const [all, eps] = await Promise.all([loadTests(), callableEndpoints(app)]);
   if (!all || !eps) return;
-  const t = file ? all.units.find((x) => x.file === file && x.name === name) : null;
-  if (file && !t) {
-    main.innerHTML = html`<div class="uk-alert uk-alert-danger">There is no test ${name}.</div>`;
+  const t = file ? all.units.find((x) => x.file === file && x.name === name && x.source === "custom") : null;
+  const copied = from ? all.units.find((x) => x.name === from) : null;
+  if ((file && !t) || (from && !copied)) {
+    main.innerHTML = html`<div class="uk-alert uk-alert-danger">There is no custom test ${name ?? from}: the generated tests
+      are not edited (<em>Duplicate</em> one to start a custom test from it).</div>`;
     return;
   }
+  const base = t ?? copied;  // What the form starts from
+  const generatedNames = new Set(all.units.filter((x) => x.source === "auto").map((x) => x.name));
   const users = (await quietApi("/users").catch(() => null))?.users ?? [];
   const endpoints = eps.endpoints;
   const key = (e) => `${e.method} ${e.route}`;
   // The endpoint of the test: the one it says, or the one whose route matches its request; if
   // none does, its request as it is written (kept as it is)
-  const req = t?.request;
-  let current = t ? endpoints.find((e) => key(e) === t.definition.endpoint)
+  const req = base?.request;
+  let current = base ? endpoints.find((e) => key(e) === base.definition.endpoint)
     ?? endpoints.find((e) => e.method === req.method && matchRoute(e.route, req.path.split("?")[0])) : endpoints[0];
-  if (t && !current) {
-    current = { method: req.method, route: req.path, name: "request", table: t.table,
+  if (base && !current) {
+    current = { method: req.method, route: req.path, name: "request", table: base.table,
       request_body_params: Object.keys(req.body ?? {}), written: true };
     endpoints.push(current);
   }
 
   main.innerHTML = html`
-    <h1>${t ? `Edit ${t.name}` : "New unit test"}</h1>
-    <p class="sa-small uk-text-muted">A unit test sends one request to an endpoint and checks the answer. <em>Try it</em>
-      sends it to your API: it may change the database.${t?.source === "auto" ? html` It is generated: saving it makes it
-      custom, and then it does not follow the changes of its endpoint.` : ""}</p>
+    <h1>${t ? `Edit ${t.name}` : copied ? `New unit test from ${copied.name}` : "New unit test"}</h1>
+    <p class="sa-small uk-text-muted">A unit test sends one request to an endpoint and checks the answer, for example that
+      a business rule rejects some data. <em>Try it</em> sends it to your API: it may change the database.</p>
     <form id="test-form" class="sa-form sa-form--wide">
       <div class="sa-field"><label class="uk-form-label" for="t-name">Name</label>
         <input class="uk-input" id="t-name" name="name" value="${t?.name ?? ""}" required pattern="\\w+"></div>
@@ -243,9 +244,9 @@ async function unitEditor(main, app, file, name) {
 
       <h3 class="sa-span">It expects</h3>
       <div class="sa-field"><label class="uk-form-label" for="t-status">Status</label>
-        <select class="uk-select" id="t-status" name="status">${options(STATUSES, t?.expect.status ?? "")}</select></div>
+        <select class="uk-select" id="t-status" name="status">${options(STATUSES, base?.expect.status ?? "")}</select></div>
       <div class="sa-field"><label class="uk-form-label" for="t-message">A message that contains (optional)</label>
-        <input class="uk-input" id="t-message" name="message" value="${t?.expect.message ?? ""}" placeholder="e.g. validSalary"></div>
+        <input class="uk-input" id="t-message" name="message" value="${base?.expect.message ?? ""}" placeholder="e.g. validSalary"></div>
 
       <details class="sa-span"><summary class="uk-text-muted sa-small">The test as it is saved</summary>
         <pre class="sa-pre" id="t-json"></pre></details>
@@ -261,14 +262,20 @@ async function unitEditor(main, app, file, name) {
   const nameField = form.querySelector("#t-name");
   const endpointOf = () => endpoints[Number(form.querySelector("#t-endpoint").value)];
   // The file: the one of a custom test, or the one of the endpoint's table
-  const fileOf = () => (t?.source === "custom" && endpointOf() === current ? t.file : endpointOf().table);
+  const fileOf = () => (t && endpointOf() === current ? t.file : endpointOf().table);
   // The name is proposed (table_endpoint_status) until the student writes one
   let nameTyped = Boolean(t);
   const proposeName = () => {
     if (nameTyped) return;
     const e = endpointOf();
-    nameField.value = `${e.table}_${e.name ?? e.method.toLowerCase()}_${form.querySelector("#t-status").value || "ok"}`
+    const proposed = `${e.table}_${e.name ?? e.method.toLowerCase()}_${form.querySelector("#t-status").value || "2xx"}`
       .replace(/\W+/g, "_");
+    // Not the name of another test (e.g., two tests of the same endpoint and status)
+    const taken = new Set(all.units.map((x) => x.name));
+    let n = 1;
+    let candidate = proposed;
+    while (taken.has(candidate)) candidate = `${proposed}_${++n}`;
+    nameField.value = candidate;
   };
   // The values typed so far, by field, so as not to lose them when the endpoint changes
   const typed = {
@@ -299,7 +306,7 @@ async function unitEditor(main, app, file, name) {
     const bodyParams = e.method === "POST" || e.method === "PUT" ? e.request_body_params ?? [] : null;
     return buildDefinition({
       description: v.description.trim(),
-      endpoint: e.silence || e.written ? t?.definition.endpoint : key(e),
+      endpoint: e.silence || e.written ? base?.definition.endpoint : key(e),
       method: e.method,
       path: fillRoute(e.route, params),
       body: bodyParams && Object.fromEntries(bodyParams.map((p) => [p, parseValue(v[`body:${p}`])])),
@@ -314,8 +321,9 @@ async function unitEditor(main, app, file, name) {
     form.querySelector("#t-json").textContent = JSON.stringify(definition(), null, 2);
   };
   form.querySelector("#t-endpoint").addEventListener("change", drawParams);
-  nameField.addEventListener("input", () => {
-    nameTyped = nameField.value !== "";
+  // Once the student goes to the name, it is theirs: it is not proposed any more
+  nameField.addEventListener("focus", () => {
+    nameTyped = true;
   });
   form.addEventListener("input", (event) => {
     if (event.target.name?.includes(":")) typed[event.target.name] = event.target.value;
@@ -334,11 +342,11 @@ async function unitEditor(main, app, file, name) {
     event.preventDefault();
     const newName = nameField.value;
     const newFile = fileOf();
-    // A generated test is saved as a custom one with its name (which replaces it)
+    if (generatedNames.has(newName)) return toast(`${newName} is the name of a generated test: choose another one`, "error");
     const saved = await attempt(() => api(`/tests/${encodeURIComponent(newFile)}/${encodeURIComponent(newName)}`, "PUT",
       definition(), all.unitData.files[newFile] ?? ""), `Saved in tests/${newFile}.json`);
     if (!saved) return;
-    if (t?.source === "custom" && (t.name !== newName || t.file !== newFile)) {  // Renamed or moved: remove the old one
+    if (t && (t.name !== newName || t.file !== newFile)) {  // Renamed or moved: remove the old one
       const etag = t.file === newFile ? saved.etag : all.unitData.files[t.file] ?? "";
       await attempt(() => api(`/tests/${t.file}/${t.name}`, "DELETE", undefined, etag));
     }

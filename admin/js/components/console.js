@@ -1,5 +1,5 @@
 // The console at the bottom of the panel: all its activity, with the errors highlighted.
-//   - requests to the student's API (trying an endpoint, unit and composite tests);
+//   - requests to the student's API (trying an endpoint, unit tests and scenarios);
 //   - actions on Silence (connecting to the database, linking the users table, saving an
 //     endpoint, opening a session as a user...);
 //   - changes in the state of the project (database connected or lost, files reloaded...).
