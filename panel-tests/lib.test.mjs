@@ -63,7 +63,8 @@ test("the console's texts and links of the actions", () => {
     "Connection tested: u@h:1/d, connected (1 databases)");
   assert.equal(describeAction("PATCH", "/config/database", { scripts: ["a.sql"] })[1], "Scripts saved in silence.json: a.sql");
   assert.equal(whereIs("/config/auth"), "#/overview/login");
-  assert.equal(whereIs("/tests/employees/x"), "#/tests");
+  assert.equal(whereIs("/tests/employees/x"), "#/endpoints");
+  assert.equal(whereIs("/panel-data/scenarios"), "#/scenarios");
 });
 
 test("formValues: types, radios, disabled controls and sections", () => {
