@@ -118,7 +118,16 @@ export function endpointTests({ app, scripts, redraw }) {
 
   /** Runs some tests (GET, POST, PUT, DELETE), creating the database again first if asked */
   async function run(tests, { reload = false } = {}) {
-    if (reload && !await attempt(() => api("/database/reload", "POST"))) return;
+    if (reload) {
+      if (!await attempt(() => api("/database/reload", "POST"))) return;
+      // The generated tests take rows of the data (e.g., one that can be deleted): computed again
+      // from the original data, not from the data that the page read
+      const fresh = await loadTests();
+      if (fresh) {
+        all = fresh;
+        tests = tests.map((t) => fresh.units.find((u) => u.name === t.name) ?? t);
+      }
+    }
     const tokens = new Map();
     let passed = 0;
     const ordered = sortForRun(tests);

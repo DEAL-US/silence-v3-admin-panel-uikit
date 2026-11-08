@@ -1,6 +1,6 @@
 // Admin panel of Silence: a single page with one view per hash (#/endpoints, #/endpoints/edit/<file>/<name>...).
-// Each page exports render(main, app, params), crumbs(params) (the breadcrumb after "Overview",
-// as [{label, href}]) and, for the second-level pages (edit, new, try...), parent(params): where
+// Each page exports render(main, app, params), crumbs(params) (the breadcrumb after the
+// project, as [{label, href}]) and, for the second-level pages (edit, new, try...), parent(params): where
 // the Back button goes. Optionally, leave(): when another page is shown.
 import { html } from "./lib/html.js";
 import { api, quietApi } from "./lib/api.js";
@@ -101,10 +101,11 @@ function showSession() {
 }
 
 function drawTopbar(crumbs, parent) {
-  const all = [{ label: "Overview", href: "#/" }, ...crumbs];
   // The project first (highlighted), then the breadcrumb; the Back button (second-level pages) at
   // the other end of the bar
   const project = app.info?.project ?? "";
+  // The project leads to Overview: it is not repeated (only without a project, e.g., Silence unreachable)
+  const all = crumbs.length || project ? crumbs : [{ label: "Overview", href: "#/" }];
   $("#topbar").innerHTML = html`
     <ul class="uk-breadcrumb sa-crumbs">
       ${project ? html`<li class="sa-crumbs__project"><a href="#/" title="${app.info.projectDir}">${capitalize(project)}</a></li>` : ""}
