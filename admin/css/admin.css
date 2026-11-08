@@ -221,6 +221,17 @@ body {
   word-break: break-word;
 }
 
+/* The code of a whole file (JavaScript): as it is, without a height limit */
+.sa-pre.sa-code-view {
+  max-height: none;
+  white-space: pre;
+  word-break: normal;
+}
+
+.sa-versions td {
+  vertical-align: top;
+}
+
 .sa-big {
   margin: 0;
   font-size: 2.2rem;

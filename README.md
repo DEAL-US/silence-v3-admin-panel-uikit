@@ -62,6 +62,11 @@ Behaviour worth knowing:
   answered. The tests that are not of an endpoint (login, register) are listed apart. A test is
   edited as a form (`components/request-form.js`: the endpoint, its params, the user, the status
   and a part of the message); the JSON is only shown.
+- JavaScript: the JS API that Silence generates with the endpoints (its files, to see their code;
+  its settings; generating it) and the molds that the project brings from its template
+  (`.silence/js_api/`), which Silence fills in: it has no front-end code of its own.
+- Overview → Versions: the version of each piece (Silence, this panel, the template, ez-ui) and,
+  with "Check for updates", the latest published one.
 - Logs: the activity (the requests to the student's app, from the log that Silence writes in
   `admin/logs/requests.log`, and what the panel does, with the failures highlighted, a link from
   each line to where it happened and a run of tests in one line), with filters, and its

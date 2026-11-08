@@ -11,9 +11,10 @@ import * as database from "./pages/database.js";
 import * as endpoints from "./pages/endpoints.js";
 import * as tests from "./pages/tests.js";
 import * as logs from "./pages/logs.js";
+import * as javascript from "./pages/javascript.js";
 
 // tests: the editor of the custom tests (the tests are seen in Endpoints); stats: the old name of logs
-const routes = { "": overview, overview, database, endpoints, tests, logs, stats: logs };
+const routes = { "": overview, overview, database, endpoints, tests, js: javascript, logs, stats: logs };
 
 // The panel does not watch the project: it reads its state when a page is shown and after each
 // action. A change made outside it (an editor, git...) is seen when the page is shown again.

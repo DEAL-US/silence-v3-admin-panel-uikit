@@ -149,3 +149,13 @@ test("the query string of the tests", async () => {
   assert.equal(withQuery("/students/above", { minAverage: "7", empty: "" }), "/students/above?minAverage=7");
   assert.equal(withQuery("/students", {}), "/students");
 });
+
+test("versions: which one is newer", async () => {
+  const { isNewer, versionKey } = await import("../admin/js/pages/overview.js");
+  assert.deepEqual(versionKey("v1.10.0"), [1, 10, 0]);
+  assert.equal(versionKey("latest"), null);
+  assert.equal(isNewer("v1.10.0", "v1.9.2"), true);
+  assert.equal(isNewer("v1.1.0", "1.1.0"), false);
+  assert.equal(isNewer("2.2.0", "3.0.0.dev0"), false);  // PyPI has Silence 2: not an update
+  assert.equal(isNewer("v1.0.1", null), false);
+});

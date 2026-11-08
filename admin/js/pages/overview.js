@@ -1,14 +1,17 @@
 // Overview, in tabs: #/ (getting started: the steps, the problems and the app), and the settings
 // of silence.json: #/overview/login (login, logout and passwords), #/overview/server and
-// #/overview/advanced (database scripts, sessions, JS API, debug, admin panel). The database
+// #/overview/advanced (database scripts, sessions, debug), and #/overview/versions (the version of
+// each piece and whether there is a newer one). The database
 // connection and the users table are in Database. Only the values that change are saved.
-import { html, tabs, switchRow, alertList } from "../lib/html.js";
+import { html, tabs, switchRow, alertList, muted } from "../lib/html.js";
 import { readConfig, saveConfig } from "../lib/files.js";
+import { api } from "../lib/api.js";
 import { attempt, toast } from "../lib/ui.js";
 import { formValues, changes } from "../lib/forms.js";
 import { orderedList } from "../components/ordered-list.js";
 
-const TABS = { start: "Getting started", login: "Login and passwords", server: "Server", advanced: "Advanced" };
+const TABS = { start: "Getting started", login: "Login and passwords", server: "Server", advanced: "Advanced",
+  versions: "Versions" };
 
 export function crumbs(params) {
   return TABS[params[0]] && params[0] !== "start" ? [{ label: TABS[params[0]] }] : [];
@@ -29,6 +32,10 @@ export async function render(main, app, params) {
   const body = main.querySelector("#tab");
   if (tab === "start") {
     start(body, s);
+    return;
+  }
+  if (tab === "versions") {
+    versionsTab(body, app);
     return;
   }
   const res = await attempt(() => readConfig());
@@ -149,15 +156,78 @@ const FORMS = {
       <div class="sa-form">${field("auth", "token_max_age", "Duration of a session (seconds)", c.auth.token_max_age,
         { type: "number", min: 60 })}</div>
       <h3>JS API for the web app</h3>
-      ${toggle("js_api", "enabled", c.js_api.enabled, "Generate the JavaScript functions to call the API when the endpoints are generated")}
-      <div class="sa-form">${field("js_api", "dir", "Folder", c.js_api.dir)}</div>
+      ${help(html`In <a href="#/js">JavaScript</a>.`)}
       <h3>Debug</h3>
       ${toggle("debug", "debug", c.debug, html`Show the SQL queries and the details of the errors in the console of <code>silence run</code>`)}
-      <h3>Admin panel</h3>
-      ${help(html`${c.admin ? html`<code>${c.admin.repo}</code>, version <code>${c.admin.version}</code>.` : "None."}
-        To update it: <code>silence admin update</code> (with <code>--version</code> or <code>--latest</code>).`)}`;
+      <h3>Versions</h3>
+      ${help(html`Of Silence, this panel, the template and ez-ui: in <a href="#/overview/versions">Versions</a>.`)}`;
   },
 };
+
+///////////////////////////////////////////////////////////////////////////////
+// Versions
+///////////////////////////////////////////////////////////////////////////////
+
+/** A version as numbers, to compare them ("v1.10.0" > "v1.9.0"); null if it has none */
+export function versionKey(text) {
+  const n = String(text ?? "").match(/\d+/g);
+  return n ? n.map(Number) : null;
+}
+
+/** Whether a version is newer than another (false if one of them is not known) */
+export function isNewer(latest, current) {
+  const [a, b] = [versionKey(latest), versionKey(current)];
+  if (!a || !b) return false;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if ((a[i] ?? 0) !== (b[i] ?? 0)) return (a[i] ?? 0) > (b[i] ?? 0);
+  }
+  return false;
+}
+
+const PIECES = [
+  ["silence", "Silence", (v) => v?.version, "pip install --upgrade silence"],
+  ["panel", "Admin panel", (v) => (v ? v.installed ?? v.version : null), "silence admin update --latest"],
+  ["template", "Template of the front-end", (v) => v?.version, "it is copied when the project is created: compare it with a new one"],
+  ["ezUi", "ez-ui", (v) => v?.version, "copy the new web/ez-ui/ of its repo into the project"],
+];
+
+function versionsTab(body, app) {
+  const draw = (current, latest) => {
+    body.innerHTML = html`
+      <p class="uk-text-muted">The version of each piece of the project. <em>Check for updates</em> asks for the latest
+        published ones (PyPI and the repos of GitHub): it needs the network.</p>
+      <div class="sa-toolbar"><button class="uk-button uk-button-primary" type="button" id="check">Check for updates</button></div>
+      <table class="uk-table uk-table-divider uk-table-small sa-versions">
+        <thead><tr><th>Piece</th><th>In use</th><th>Latest</th><th></th></tr></thead>
+        <tbody>${PIECES.map(([key, label, used, how]) => {
+          const v = current?.[key];
+          const inUse = used(v);
+          const l = latest?.[key];
+          const newer = l?.version && isNewer(l.version, inUse);
+          return html`<tr>
+            <td><strong>${label}</strong>${v?.repo ? html`<br><span class="uk-text-muted sa-small">${v.repo}</span>` : ""}</td>
+            <td>${inUse ? html`<code>${inUse}</code>` : muted("not known")}
+              ${key === "panel" && v?.adminApi && v.adminApi !== current.silence.adminApi
+                ? html`<br><span class="sa-fail sa-small">needs the admin API ${v.adminApi}, Silence has ${current.silence.adminApi}</span>` : ""}</td>
+            <td>${!latest ? muted() : !l ? muted("no repo") : l.error ? html`<span class="uk-text-warning sa-small">${l.error}</span>`
+              : html`<code>${l.version}</code>`}</td>
+            <td class="sa-small">${newer ? html`<span class="sa-fail">A newer version:</span> <code>${how}</code>`
+              : l?.version && isNewer(inUse, l.version) ? html`<span class="uk-text-muted">Newer than the published one</span>`
+              : l?.version ? html`<span class="sa-pass">Up to date</span>` : ""}</td>
+          </tr>`;
+        })}</tbody>
+      </table>`;
+    body.querySelector("#check").addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      button.textContent = "Checking…";
+      const res = await attempt(() => api("/?updates=true"));
+      if (res) draw(res.versions, res.latest);
+      else draw(current, latest);
+    });
+  };
+  draw(app.info?.versions, null);
+}
 
 /** The database scripts: added with the file explorer, in a list to move up, down and remove */
 function scriptsList(form, app) {
