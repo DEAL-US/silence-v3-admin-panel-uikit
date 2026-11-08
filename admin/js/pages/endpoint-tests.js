@@ -7,6 +7,7 @@ import { api } from "../lib/api.js";
 import { attempt, toast, needsConfirm } from "../lib/ui.js";
 import { sortForRun, expectText, matchRoute } from "../lib/testing.js";
 import { runUnit } from "../lib/runner.js";
+import { deleteEntry, testsFile } from "../lib/files.js";
 import { results, loadTests, resultBadge, stepsDetail } from "./tests-common.js";
 
 const endpointKey = (e) => `${e.method} ${e.route}`;
@@ -16,7 +17,7 @@ const endpointKey = (e) => `${e.method} ${e.route}`;
  * redraw draws the grid again (its cells and the opened rows). Returns the parts that the grid uses.
  */
 export function endpointTests({ app, scripts, redraw }) {
-  let all = { units: [], unitData: { files: {}, errors: [] } };
+  let all = { units: [], errors: [] };
   let byEndpoint = new Map();  // endpoint key → its tests
   let others = [];             // the tests that are not of an endpoint
   const opened = new Set();    // the endpoints whose tests are shown
@@ -158,7 +159,7 @@ export function endpointTests({ app, scripts, redraw }) {
     }
     if (action === "delete-test" && test) {
       if (!needsConfirm(element, "Delete?")) return true;
-      if (await attempt(() => api(`/tests/${test.file}/${test.name}`, "DELETE", undefined, all.unitData.files[test.file] ?? ""), "Deleted")) {
+      if (await attempt(() => deleteEntry(testsFile(test.file), test.name), "Deleted")) {
         results.delete("unit:" + test.name);
         await load(endpoints);
         redraw();
@@ -171,7 +172,7 @@ export function endpointTests({ app, scripts, redraw }) {
   return {
     load, cell, panel, othersSection, summary, handle,
     count: (e) => testsOf(e).length,
-    errors: () => all.unitData.errors,
+    errors: () => all.errors,
     runAll: (button) => runGroup(all.units, button),
   };
 }

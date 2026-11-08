@@ -1,7 +1,7 @@
 // Trying an endpoint (#/endpoints/try/<file>/<name>): as a user chosen here (a session without
 // password), with real values proposed by a GET of the same table, and its response.
 import { html, link, methodBadge, statusClass, json, options } from "../lib/html.js";
-import { api, quietApi } from "../lib/api.js";
+import { api, quietApi, loadEndpoints } from "../lib/api.js";
 import { session, callApi, peekApi, studentApi } from "../lib/student-api.js";
 import { attempt, toast } from "../lib/ui.js";
 
@@ -34,7 +34,7 @@ function valueFor(row, param) {
 const rowLabel = (r) => Object.values(r).filter((v) => v !== null && typeof v !== "object").slice(0, 3).join(" · ");
 
 export async function render(main, app, file, name) {
-  const data = await attempt(() => api("/endpoints"));
+  const data = await attempt(() => loadEndpoints({ quiet: true }));
   if (!data) return;
   const e = data.endpoints.find((x) => x.file === file && x.name === name);
   if (!e) {

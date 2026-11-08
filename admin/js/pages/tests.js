@@ -4,8 +4,8 @@
 // #/tests/new/<test> (a custom test from another one, e.g., a generated test that fails) and
 // #/tests/edit/<file>/<name>. #/tests goes to Endpoints.
 import { html } from "../lib/html.js";
-import { api } from "../lib/api.js";
 import { attempt, toast } from "../lib/ui.js";
+import { moveEntry, testsFile } from "../lib/files.js";
 import { parseUnit } from "../lib/testing.js";
 import { runUnit } from "../lib/runner.js";
 import { requestForm, requestContext, endpointKey } from "../components/request-form.js";
@@ -118,13 +118,8 @@ async function editor(main, app, { file, name, from, endpointFile, endpointName 
     const newName = nameField.value;
     const newFile = fileOf();
     if (generatedNames.has(newName)) return toast(`${newName} is the name of a generated test: choose another one`, "error");
-    const saved = await attempt(() => api(`/tests/${encodeURIComponent(newFile)}/${encodeURIComponent(newName)}`, "PUT",
-      definition(), all.unitData.files[newFile] ?? ""), `Saved in tests/${newFile}.json`);
-    if (!saved) return;
-    if (t && (t.name !== newName || t.file !== newFile)) {  // Renamed or moved: remove the old one
-      const etag = t.file === newFile ? saved.etag : all.unitData.files[t.file] ?? "";
-      await attempt(() => api(`/tests/${t.file}/${t.name}`, "DELETE", undefined, etag));
-    }
-    location.hash = "#/endpoints";
+    const old = t && { path: testsFile(t.file), name: t.name, definition: t.definition };
+    const saved = await attempt(() => moveEntry(old, testsFile(newFile), newName, definition()), `Saved in tests/${newFile}.json`);
+    if (saved) location.hash = "#/endpoints";
   });
 }

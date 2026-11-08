@@ -1,14 +1,15 @@
 // The client of Silence's admin API (/_silence/v1, see panel.json). The actions (not the reads)
-// and the errors go to the console.
-import { logEvent } from "../components/console.js";
+// and the errors go to the activity (Logs).
+import { logEvent } from "./log.js";
 import { describe, whereIs } from "./activity.js";
 
 export const API = "/_silence/v1";
 
 /** Calls the admin API and returns its JSON, or throws an Error with its message.
  *  etag: the version of the file that is changed (If-Match), so as not to overwrite changes
- *  made meanwhile in another place (412). quiet: nothing to the console. */
-export async function api(path, method = "GET", body = undefined, etag = undefined, { quiet = false } = {}) {
+ *  made meanwhile in another place (412). quiet: nothing to the activity (Logs); action: what a
+ *  change of a file means, for the activity (see activity.js). */
+export async function api(path, method = "GET", body = undefined, etag = undefined, { quiet = false, action = null } = {}) {
   const options = { method, headers: {} };
   if (etag !== undefined) options.headers["If-Match"] = etag;
   if (body !== undefined) {
@@ -24,14 +25,20 @@ export async function api(path, method = "GET", body = undefined, etag = undefin
   }
   const data = await response.json().catch(() => ({}));
   if (!quiet && (method !== "GET" || !response.ok)) {
-    const [source, message] = describe(method, path, body, data);
+    const [source, message] = describe(method, path, body, data, action);
     const ok = response.ok && !(path.startsWith("/database/test") && !data.ok);
     logEvent(source, response.ok ? message : `${message}: ${data.message || `error ${response.status}`}`,
-      { ok, details: response.ok ? undefined : data, href: whereIs(path) });
+      { ok, details: response.ok ? undefined : data, href: whereIs(path, action) });
   }
   if (!response.ok) throw new Error(data.message || `Error ${response.status}`);
   return data;
 }
 
-/** The same, without anything to the console */
+/** The same, without anything to the activity */
 export const quietApi = (path, method = "GET", body = undefined) => api(path, method, body, undefined, { quiet: true });
+
+/** The endpoints that Silence is serving (GET /status): {endpoints, errors, apiPrefix} */
+export async function loadEndpoints({ quiet = false } = {}) {
+  const s = await api("/status", "GET", undefined, undefined, { quiet });
+  return { endpoints: s.endpoints.list, errors: s.errors.endpoints, apiPrefix: s.apiPrefix };
+}

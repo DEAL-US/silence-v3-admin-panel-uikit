@@ -3,7 +3,7 @@
 // #/overview/advanced (database scripts, sessions, JS API, debug, admin panel). The database
 // connection and the users table are in Database. Only the values that change are saved.
 import { html, tabs, switchRow, alertList } from "../lib/html.js";
-import { api } from "../lib/api.js";
+import { readConfig, saveConfig } from "../lib/files.js";
 import { attempt, toast } from "../lib/ui.js";
 import { formValues, changes } from "../lib/forms.js";
 import { orderedList } from "../components/ordered-list.js";
@@ -31,7 +31,7 @@ export async function render(main, app, params) {
     start(body, s);
     return;
   }
-  const res = await attempt(() => api("/config"));
+  const res = await attempt(() => readConfig());
   if (!res) return;
   body.innerHTML = html`<form class="sa-settings" id="settings">${FORMS[tab](res.config, app)}
     <div class="sa-toolbar"><button class="uk-button uk-button-primary" type="submit">Save</button></div></form>`;
@@ -77,8 +77,8 @@ function start(body, s) {
     <h2>Your app</h2>
     <p>The web app is served from <code>web/</code> at <a href="/" target="_blank">${s.baseUrl}/</a>,
       and the API at <a href="${s.apiPrefix}" target="_blank">${s.baseUrl + s.apiPrefix}</a>.
-      The requests to both are shown in the console where <code>silence run</code> is running; the activity of
-      this panel, in its console (at the bottom).</p>`;
+      The requests to both are shown in the console where <code>silence run</code> is running and, with what this
+      panel does and their statistics, in <a href="#/logs">Logs</a>.</p>`;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -199,7 +199,7 @@ function settingsForm(form, app) {
     }
     let restart = false;
     for (const [section, values] of Object.entries(changed)) {
-      const res = await attempt(() => api(`/config/${section}`, "PATCH", values));
+      const res = await attempt(() => saveConfig(section, values));
       if (!res) return;  // The rest are not saved: the error says why
       restart ||= res.restartNeeded;
     }

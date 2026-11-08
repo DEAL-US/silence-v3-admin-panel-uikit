@@ -2,7 +2,7 @@
 // the endpoint it calls (its params of the route and of the query string, and its body, as
 // fields), the user it is sent as and what it expects (a status and a part of the message).
 import { html, options } from "../lib/html.js";
-import { api, quietApi } from "../lib/api.js";
+import { quietApi, loadEndpoints } from "../lib/api.js";
 import { attempt } from "../lib/ui.js";
 import { routeParams, matchRoute, fillRoute, parseValue, valueText, buildDefinition, queryOf, withQuery } from "../lib/testing.js";
 
@@ -16,7 +16,7 @@ export const endpointKey = (e) => `${e.method} ${e.route}`;
 /** What a request needs to be written: the endpoints that it can call (the student's, and login
  *  and register, Silence's), the API prefix and the users. null if Silence cannot be reached. */
 export async function requestContext(app) {
-  const eps = await attempt(() => api("/endpoints"));
+  const eps = await attempt(() => loadEndpoints({ quiet: true }));
   if (!eps) return null;
   const endpoints = [...eps.endpoints].sort((a, b) => a.route.localeCompare(b.route) || a.method.localeCompare(b.method));
   const auth = app.status.auth;

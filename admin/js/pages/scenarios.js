@@ -4,6 +4,7 @@
 // (they change the database). Views: #/scenarios, #/scenarios/new and #/scenarios/edit/<name>.
 import { html, link, iconButton, methodBadge } from "../lib/html.js";
 import { api } from "../lib/api.js";
+import { readConfig } from "../lib/files.js";
 import { attempt, toast, needsConfirm } from "../lib/ui.js";
 import { runScenario, runUnit } from "../lib/runner.js";
 import { dataTable } from "../components/table.js";
@@ -42,7 +43,7 @@ function stepLine(step) {
 }
 
 async function list(main, app) {
-  const [tests, config] = await Promise.all([loadTests(), attempt(() => api("/config"))]);
+  const [tests, config] = await Promise.all([loadTests(), attempt(() => readConfig())]);
   const data = await loadScenarios(tests?.units);
   if (!data) return;
   const scripts = config?.config.database.scripts ?? [];

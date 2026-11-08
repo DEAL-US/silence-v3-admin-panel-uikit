@@ -1,7 +1,7 @@
 /* Silence admin panel: on top of UIkit (vendor/uikit), with the sa- prefix.
    1. Tokens   2. Layout   3. Sidebar   4. Top bar   5. Text and helpers   6. Forms and toolbars
    7. Tabs   8. Grids   9. Badges   10. Buttons and switches   11. Lists   12. Endpoints
-   13. Tests   14. Overview and statistics   15. Console   16. Small screens */
+   13. Tests   14. Overview and statistics   15. Logs   16. Small screens */
 
 /* 1. Tokens ---------------------------------------------------------------------------------- */
 :root {
@@ -31,9 +31,7 @@
   --sa-console-error: #ff7a8f;
   --sa-console-message: #ffb3bf;
   --sa-console-pre: #111821;
-  --sa-console-badge: #3a4656;
 
-  --sa-console-height: 2.5rem;
   --sa-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
@@ -46,7 +44,6 @@ body {
   display: grid;
   grid-template-columns: var(--sa-side-width) 1fr;
   min-height: 100vh;
-  padding-bottom: var(--sa-console-height); /* the closed console does not cover the end of the page */
 }
 
 .sa-main {
@@ -106,6 +103,9 @@ body {
 .sa-nav .uk-badge {
   margin-left: auto;
 }
+
+.sa-nav .uk-badge.sa-badge--fail { background: var(--sa-delete); }
+.sa-nav .uk-badge:empty { display: none; }
 
 .sa-menu-toggle {
   display: none;
@@ -171,6 +171,21 @@ body {
 
 .sa-crumbs {
   margin: 0;
+}
+
+/* The project, at the beginning of the breadcrumb */
+.sa-crumbs > .sa-crumbs__project > a {
+  padding: 2px 10px;
+  border-radius: 4px;
+  background: var(--sa-accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.sa-crumbs > .sa-crumbs__project > a:hover {
+  color: #fff;
+  text-decoration: none;
+  filter: brightness(1.1);
 }
 
 .sa-back {
@@ -619,82 +634,20 @@ body {
   margin-bottom: 24px;
 }
 
-/* 15. Console: a drawer at the bottom with all the activity of the panel ---------------------- */
+/* 15. Logs: the activity, as a console in the page ------------------------------------------ */
 .sa-console {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: var(--sa-side-width);
-  z-index: 980;
+  max-height: 70vh;
+  padding: 4px 12px 8px;
+  overflow-y: auto;
+  border-radius: 4px;
   background: var(--sa-console-bg);
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.2);
   color: var(--sa-console-text);
   font-size: .8rem;
 }
 
-.sa-console__bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: var(--sa-console-height);
-  padding: 0 12px;
-}
-
-.sa-console__toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.sa-console .uk-badge { background: var(--sa-console-badge); }
-.sa-console .uk-badge.sa-console__errors { background: var(--sa-delete); }
-
-.sa-console__last {
-  overflow: hidden;
-  min-width: 0;
-  color: var(--sa-console-soft);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sa-console__filter {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-}
-
-.sa-console__filter .uk-checkbox {
-  border-color: var(--sa-console-muted);
-  background-color: transparent;
-}
-
-.sa-console .uk-button-default {
-  border-color: #4a5668;
-  color: var(--sa-console-text);
-}
-
-.sa-console .uk-button-default:hover {
-  border-color: var(--sa-console-muted);
-  color: #fff;
-}
-
-.sa-console__body {
-  max-height: 40vh;
-  padding: 0 12px 8px;
-  overflow-y: auto;
-  border-top: 1px solid var(--sa-console-line);
-}
-
-.sa-console__body p {
+.sa-console p {
   margin: 8px 0;
+  color: var(--sa-console-soft);
 }
 
 .sa-console__line {
@@ -795,7 +748,4 @@ body {
     padding: 10px 16px;
   }
 
-  .sa-console {
-    left: 0;
-  }
 }

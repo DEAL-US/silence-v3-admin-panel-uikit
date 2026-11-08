@@ -55,16 +55,58 @@ test("sortForRun: GET, POST, PUT, DELETE (stable)", () => {
 });
 
 test("the console's texts and links of the actions", () => {
-  assert.deepEqual(describeAction("PUT", "/endpoints/employees/update", {}, {}), ["Endpoints", "employees/update saved"]);
-  assert.deepEqual(describeAction("PATCH", "/config/auth", { login: false, password_mode: "plain" }),
+  const save = (section, values) => describeAction("PUT", "/files/silence.json", {}, {}, { section, values });
+  assert.deepEqual(describeAction("PUT", "/files/endpoints/employees.json", {}, {}, { name: "update", change: "saved" }),
+    ["Endpoints", "employees/update saved"]);
+  assert.deepEqual(describeAction("DELETE", "/files/tests/employees.json", {}, {}, { name: "x", change: "deleted" }),
+    ["Tests", "employees/x deleted"]);
+  assert.deepEqual(save("auth", { login: false, password_mode: "plain" }),
     ["Users", "Saved in silence.json: login off, passwords as plain text"]);
-  assert.equal(describeAction("PATCH", "/config/auth", { table: "" })[1], "Users table unlinked");
+  assert.equal(save("auth", { table: "" })[1], "Users table unlinked");
+  assert.equal(save("database", { scripts: ["a.sql"] })[1], "Scripts saved in silence.json: a.sql");
   assert.equal(describeAction("POST", "/database/test", { user: "u", host: "h", port: 1, name: "d" }, { ok: true, databases: ["d"] })[1],
     "Connection tested: u@h:1/d, connected (1 databases)");
-  assert.equal(describeAction("PATCH", "/config/database", { scripts: ["a.sql"] })[1], "Scripts saved in silence.json: a.sql");
-  assert.equal(whereIs("/config/auth"), "#/overview/login");
-  assert.equal(whereIs("/tests/employees/x"), "#/endpoints");
-  assert.equal(whereIs("/panel-data/scenarios"), "#/scenarios");
+  assert.equal(describeAction("PUT", "/files/admin/data/scenarios.json")[0], "Scenarios");
+  assert.equal(describeAction("DELETE", "/files/admin/logs/requests.log")[0], "Logs");
+  assert.equal(whereIs("/files/silence.json", { section: "auth" }), "#/overview/login");
+  assert.equal(whereIs("/files/silence.json", { section: "database" }), "#/database/connection");
+  assert.equal(whereIs("/files/tests/employees.json"), "#/endpoints");
+  assert.equal(whereIs("/files/admin/data/scenarios.json"), "#/scenarios");
+  assert.equal(whereIs("/users/3/session"), "#/database/users");
+});
+
+test("the log of requests: its lines, their statistics and the panel's own requests", async () => {
+  const { parseLog, summarize, fileKind, notFromPanel } = await import("../admin/js/lib/requestlog.js");
+  const text = [
+    "2026-11-08T08:01:12 api GET /api/employees/3 200 4ms 312B /employees/$employeeId",
+    "2026-11-08T08:01:13 api GET /api/employees/9 404 2ms 40B /employees/$employeeId Not found",
+    "2026-11-08T08:01:14 api GET /api/nothing?x=1 404 1ms 50B - There is no endpoint GET /api/nothing",
+    "2026-11-08T08:01:15 silence POST /api/login 401 9ms 60B /login Wrong password",
+    "2026-11-08T08:01:16 web GET /css/main.css 200 1ms 1000B -",
+    "2026-11-08T08:01:17 web GET /img/x.png 404 1ms 0B -",
+    "not a line", "",
+  ].join("\n");
+  const lines = parseLog(text);
+  assert.equal(lines.length, 6);
+  assert.deepEqual({ ...lines[1], at: 0 }, { at: 0, group: "api", method: "GET", path: "/api/employees/9", status: 404, ms: 2,
+    bytes: 40, route: "/employees/$employeeId", message: "Not found" });
+  const s = summarize(lines);
+  assert.equal(s.since, lines[0].at);
+  assert.equal(s.api.requests, 3);
+  assert.equal(s.api.errors, 2);
+  assert.deepEqual(s.api.unmatched, { "GET /api/nothing": 1 });
+  assert.equal(s.api.endpoints[0].route, "/employees/$employeeId");
+  assert.deepEqual(s.api.endpoints[0].byStatus, { 200: 1, 404: 1 });
+  assert.equal(s.api.endpoints[0].maxMs, 4);
+  assert.equal(s.silence.endpoints[0].route, "/login");
+  assert.deepEqual([s.web.requests, s.web.notFound, s.web.bytes], [2, 1, 1000]);
+  assert.deepEqual(s.web.byKind, { style: 1, image: 1 });
+  assert.deepEqual(["/", "/a/index.html", "/x.JS", "/f.zip"].map(fileKind), ["page", "page", "script", "other"]);
+  assert.equal(summarize([]).since, null);
+  // The requests that the panel sent (and shows itself) are not shown twice
+  const sent = [{ at: lines[0].at + 500, method: "GET", path: "/api/employees/3", status: 200 }];
+  assert.equal(notFromPanel(lines, sent).length, 5);
+  assert.equal(notFromPanel(lines, [{ ...sent[0], at: lines[0].at + 5000 }]).length, 6);
 });
 
 test("formValues: types, radios, disabled controls and sections", () => {

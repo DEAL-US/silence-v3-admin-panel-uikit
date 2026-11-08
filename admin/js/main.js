@@ -5,16 +5,16 @@
 import { html } from "./lib/html.js";
 import { api, quietApi } from "./lib/api.js";
 import { session, studentApi } from "./lib/student-api.js";
-import { initConsole, logEvent } from "./components/console.js";
+import { logEvent, failures, subscribe } from "./lib/log.js";
 import * as overview from "./pages/overview.js";
 import * as database from "./pages/database.js";
 import * as endpoints from "./pages/endpoints.js";
 import * as tests from "./pages/tests.js";
 import * as scenarios from "./pages/scenarios.js";
-import * as stats from "./pages/stats.js";
+import * as logs from "./pages/logs.js";
 
-// tests: the editor of the custom tests (the tests are seen in Endpoints)
-const routes = { "": overview, overview, database, endpoints, tests, scenarios, stats };
+// tests: the editor of the custom tests (the tests are seen in Endpoints); stats: the old name of logs
+const routes = { "": overview, overview, database, endpoints, tests, scenarios, logs, stats: logs };
 
 // The panel does not watch the project: it reads its state when a page is shown and after each
 // action. A change made outside it (an editor, git...) is seen when the page is shown again.
@@ -58,7 +58,15 @@ function drawSidebar(s) {
   $("#count-endpoints").textContent = s.endpoints.count || "";
 }
 
-/** The changes in the state of the project, to the console (the first time, the whole state) */
+/** The badge of Logs in the menu: the actions of the panel that failed */
+function drawLogsBadge() {
+  const n = failures();
+  const badge = $("#count-failures");
+  badge.textContent = n || "";
+  badge.title = n ? `${n} failed (see Logs)` : "";
+}
+
+/** The changes in the state of the project, to the activity (the first time, the whole state) */
 function reportChanges(prev, s) {
   const db = (x) => (x.database.error ? `not connected: ${x.database.error}` : `connected to ${x.database.name}`);
   const users = (x) => (x.auth.linked
@@ -99,9 +107,12 @@ function showSession() {
 
 function drawTopbar(crumbs, parent) {
   const all = [{ label: "Overview", href: "#/" }, ...crumbs];
-  // The breadcrumb first; the Back button (second-level pages) at the other end of the bar
+  // The project first (highlighted), then the breadcrumb; the Back button (second-level pages) at
+  // the other end of the bar
+  const project = app.info?.project ?? "";
   $("#topbar").innerHTML = html`
     <ul class="uk-breadcrumb sa-crumbs">
+      ${project ? html`<li class="sa-crumbs__project"><a href="#/" title="${app.info.projectDir}">${capitalize(project)}</a></li>` : ""}
       ${all.map((c, i) => (i === all.length - 1
         ? html`<li><span aria-current="page">${c.label}</span></li>`
         : html`<li><a href="${c.href}">${c.label}</a></li>`))}
@@ -111,7 +122,7 @@ function drawTopbar(crumbs, parent) {
 }
 
 function markNav(name) {
-  const active = name === "overview" ? "" : name === "tests" ? "endpoints" : name;
+  const active = name === "overview" ? "" : name === "tests" ? "endpoints" : name === "stats" ? "logs" : name;
   for (const a of document.querySelectorAll(".sa-nav a")) {
     const target = a.getAttribute("href").replace(/^#\/?/, "");
     a.parentElement.classList.toggle("uk-active", target === active);
@@ -156,7 +167,8 @@ async function start() {
   document.addEventListener("sa-session", showSession);
   window.addEventListener("hashchange", render);
   showSession();
-  initConsole();
+  subscribe(drawLogsBadge);
+  drawLogsBadge();
   await checkCompatibility();
   await render();
 }

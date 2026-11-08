@@ -4,7 +4,8 @@
 // to change one). The tabs that need the database are disabled while the connection fails or is
 // being changed; Users, until the users table is linked.
 import { html, tabs, options, muted } from "../lib/html.js";
-import { api, quietApi } from "../lib/api.js";
+import { api, quietApi, loadEndpoints } from "../lib/api.js";
+import { readConfig, saveConfig } from "../lib/files.js";
 import { attempt, toast, reloadDatabase } from "../lib/ui.js";
 import { formValues } from "../lib/forms.js";
 import { dataTable } from "../components/table.js";
@@ -63,7 +64,7 @@ export async function render(main, app, params) {
 ///////////////////////////////////////////////////////////////////////////////
 
 async function connection(body, app, redrawTabs) {
-  const res = await attempt(() => api("/config"));
+  const res = await attempt(() => readConfig());
   if (!res) return;
   const db = res.config.database;
   const scripts = db.scripts ?? [];
@@ -101,7 +102,7 @@ async function connection(body, app, redrawTabs) {
     result.innerHTML = html`<div class="uk-alert uk-alert-${ok ? "success" : "warning"}">${text}</div>`;
   };
 
-  // The list of databases, without saving anything (and without going to the console)
+  // The list of databases, without saving anything (and without going to the activity)
   if (db.host && db.user) {
     const found = await quietApi("/database/test", "POST", formValues(form)).catch(() => null);
     if (found?.databases.length) fill(found.databases);
@@ -121,7 +122,7 @@ async function connection(body, app, redrawTabs) {
     fill(test.databases);
     if (!values.name) return show(false, `Connected: now choose one of the ${test.databases.length} databases and save.`);
     if (!test.ok) return show(false, test.error);
-    if (await attempt(() => api("/config/database", "PATCH", values), "Connected and saved in silence.json")) {
+    if (await attempt(() => saveConfig("database", values), "Connected and saved in silence.json")) {
       show(true, html`Connected to <code>${values.name}</code> and saved in <code>silence.json</code>.`);
       await app.refreshStatus();
       redrawTabs(false);
@@ -134,7 +135,7 @@ async function connection(body, app, redrawTabs) {
 ///////////////////////////////////////////////////////////////////////////////
 
 async function tables(body, app) {
-  const [schema, eps] = await Promise.all([attempt(() => api("/schema")), attempt(() => api("/endpoints"))]);
+  const [schema, eps] = await Promise.all([attempt(() => api("/schema")), attempt(() => loadEndpoints({ quiet: true }))]);
   if (!schema || !eps) return;
   const same = (a, b) => a.toLowerCase() === b.toLowerCase();
   const usersTable = app.status.auth.linked ? app.status.auth.table : null;
@@ -175,7 +176,7 @@ async function tables(body, app) {
 ///////////////////////////////////////////////////////////////////////////////
 
 async function usersTable(body, app, redrawTabs) {
-  const [config, schema] = await Promise.all([attempt(() => api("/config")), attempt(() => api("/schema"))]);
+  const [config, schema] = await Promise.all([attempt(() => readConfig()), attempt(() => api("/schema"))]);
   if (!config || !schema) return;
   const auth = config.config.auth;
   const relations = schema.relations.filter((r) => !r.view);
@@ -231,7 +232,7 @@ async function usersTable(body, app, redrawTabs) {
     }
     if (!v.table) Object.assign(v, { identifier: "", password: "", role: "", active: "" });
     if (v.identifier?.includes(".")) v.register = false;  // A new user would need a row in the other table first
-    if (await attempt(() => api("/config/auth", "PATCH", v), "Saved in silence.json")) {
+    if (await attempt(() => saveConfig("auth", v), "Saved in silence.json")) {
       // The users table only has its reads (GET): its endpoints are generated again, if there are any
       if (v.table && app.status.endpoints.auto) {
         await attempt(() => api("/endpoints/generate", "POST", { tables: [v.table] }),
