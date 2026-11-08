@@ -31,7 +31,7 @@ export function check(expect, status, data) {
  *  Error (with a message for the student) if it is not a unit test. */
 export function parseUnit(def) {
   if (!def || typeof def !== "object" || Array.isArray(def)) throw new Error("A test is an object");
-  if (def.steps) throw new Error("A unit test has one request: the scenarios go in the Scenarios tab");
+  if (def.steps) throw new Error("A test has one request (it has no steps)");
   let request;
   if (def.request) {
     request = { method: String(def.request.method ?? "GET").toUpperCase(), path: def.request.path,

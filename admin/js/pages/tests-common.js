@@ -1,15 +1,12 @@
-// What the pages share about the tests and the scenarios: loading them, the results of the last
-// runs (while the panel is open) and how a result is shown.
+// What the pages share about the tests: loading them, the results of the last runs (while the
+// panel is open) and how a result is shown.
 import { html, methodBadge, statusClass, json } from "../lib/html.js";
 import { quietApi } from "../lib/api.js";
 import { attempt } from "../lib/ui.js";
 import { parseUnit } from "../lib/testing.js";
-import { readFile, quietReadFile, writeFile, listFiles, panelFile } from "../lib/files.js";
+import { quietReadFile, listFiles } from "../lib/files.js";
 
-// The panel's data with the scenarios
-const SCENARIOS = panelFile("scenarios");
-
-/** The results of the last runs: "unit:<name>" or "scenario:<name>" → {passed, steps} */
+/** The results of the last runs: "unit:<name>" → {passed, steps} (a test has one step) */
 export const results = new Map();
 
 /** A custom test as the panel shows it (the same fields as a generated one) */
@@ -43,34 +40,15 @@ export async function loadTests() {
   });
 }
 
-/** The scenarios (the panel's data in admin/data/), each step a request as a unit test defines it */
-export async function loadScenarios() {
-  const saved = await attempt(() => readFile(SCENARIOS));
-  if (!saved) return null;
-  return { scenarios: Array.isArray(saved.data) ? saved.data : [], etag: saved.etag };
-}
-
-export const saveScenarios = (list, etag) => attempt(() => writeFile(SCENARIOS, list, etag ?? ""));
-
-/** A step of a scenario as a unit test (null if it is not valid) */
-export function stepUnit(step) {
-  try {
-    return parseUnit(step);
-  } catch {
-    return null;
-  }
-}
-
 export function resultBadge(r) {
   if (!r) return html`<span class="uk-text-muted">—</span>`;
   return r.passed ? html`<span class="sa-pass">PASS</span>` : html`<span class="sa-fail">FAIL</span>`;
 }
 
-/** The steps of a result (a unit test has one): what was sent, what came back and why it failed */
+/** The steps of a result (a test has one): what was sent, what came back and why it failed */
 export function stepsDetail(steps) {
   return html`${steps.map((s) => html`
     <div class="sa-step ${s.passed ? "sa-step--pass" : "sa-step--fail"} sa-small">
-      ${steps.length > 1 ? html`Step ${s.index + 1}${s.test ? html` (<strong>${s.test}</strong>)` : ""}: ` : ""}
       ${s.method ? methodBadge(s.method) : ""} <span class="sa-route">${s.path}</span>
       ${s.status ? html`→ <span class="sa-status ${statusClass(s.status)}">${s.status}</span>` : ""}
       ${s.failures.length ? html`<br>${s.failures.map((f, i) => html`${i ? html`<br>` : ""}${f}`)}

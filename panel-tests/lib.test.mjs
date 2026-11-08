@@ -42,7 +42,7 @@ test("parseUnit: short and long forms, and what is not a unit test", () => {
     { request: { method: "GET", path: "/employees/1", body: null, as: 2 }, expect: { status: 200 } });
   assert.deepEqual(parseUnit({ request: { method: "put", path: "/x", body: { a: 1 } }, expect: { status: 403 } }),
     { request: { method: "PUT", path: "/x", body: { a: 1 }, as: null }, expect: { status: 403 } });
-  assert.throws(() => parseUnit({ steps: [] }), /scenarios/);
+  assert.throws(() => parseUnit({ steps: [] }), /one request/);
   assert.throws(() => parseUnit({ "GET /a": null, "POST /b": {} }), /one request/);
   assert.throws(() => parseUnit([]), /object/);
   assert.equal(expectText({}), "2xx");
@@ -66,12 +66,10 @@ test("the console's texts and links of the actions", () => {
   assert.equal(save("database", { scripts: ["a.sql"] })[1], "Scripts saved in silence.json: a.sql");
   assert.equal(describeAction("POST", "/database/test", { user: "u", host: "h", port: 1, name: "d" }, { ok: true, databases: ["d"] })[1],
     "Connection tested: u@h:1/d, connected (1 databases)");
-  assert.equal(describeAction("PUT", "/files/admin/data/scenarios.json")[0], "Scenarios");
   assert.equal(describeAction("DELETE", "/files/admin/logs/requests.log")[0], "Logs");
   assert.equal(whereIs("/files/silence.json", { section: "auth" }), "#/overview/login");
   assert.equal(whereIs("/files/silence.json", { section: "database" }), "#/database/connection");
   assert.equal(whereIs("/files/tests/employees.json"), "#/endpoints");
-  assert.equal(whereIs("/files/admin/data/scenarios.json"), "#/scenarios");
   assert.equal(whereIs("/users/3/session"), "#/database/users");
 });
 

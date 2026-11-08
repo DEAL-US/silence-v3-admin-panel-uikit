@@ -1,5 +1,5 @@
 // The files of the project, through Silence's file API (/files): silence.json, endpoints/*.json,
-// tests/*.json, the panel's data (admin/data/*.json) and the log of requests. Silence checks each
+// tests/*.json and the log of requests. Silence checks each
 // one before saving it; the panel reads it, changes what it has to and writes it whole, with the
 // version it read (412 if it changed meanwhile in another place).
 import { api, quietApi } from "./api.js";
@@ -8,7 +8,6 @@ export const CONFIG = "silence.json";
 export const LOG = "admin/logs/requests.log";
 export const endpointsFile = (file) => `endpoints/${file}.json`;
 export const testsFile = (file) => `tests/${file}.json`;
-export const panelFile = (name) => `admin/data/${name}.json`;
 
 const url = (path) => `/files/${path.split("/").map(encodeURIComponent).join("/")}`;
 

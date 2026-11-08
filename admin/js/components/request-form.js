@@ -1,4 +1,4 @@
-// The fields of a request to the student's API, as a unit test or a step of a scenario defines it:
+// The fields of a request to the student's API, as a test defines it:
 // the endpoint it calls (its params of the route and of the query string, and its body, as
 // fields), the user it is sent as and what it expects (a status and a part of the message).
 import { html, options } from "../lib/html.js";

@@ -41,9 +41,6 @@ function describeFile(method, file, action) {
     const target = action?.name ? `${name}/${action.name}` : `${folder}/${name}.json`;
     return [kind, `${target} ${action?.change ?? (method === "DELETE" ? "deleted" : "saved")}`];
   }
-  if (folder === "admin" && rest[0] === "data") {
-    return [name === "data/scenarios" ? "Scenarios" : "Panel", `${file} ${method === "DELETE" ? "deleted" : "saved"}`];
-  }
   return ["Silence", `${method} ${file}`];
 }
 
@@ -92,7 +89,6 @@ export function whereIs(path, action = null) {
       return "#/overview/advanced";
     }
     if (file.startsWith("endpoints/") || file.startsWith("tests/")) return "#/endpoints";
-    if (file === "admin/data/scenarios.json") return "#/scenarios";
     if (file.startsWith("admin/logs/")) return "#/logs";
     return undefined;
   }

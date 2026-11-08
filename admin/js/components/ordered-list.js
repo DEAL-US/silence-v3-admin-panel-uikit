@@ -1,5 +1,5 @@
 // An ordered list that the student arranges: each item with buttons to move it up and down and
-// to remove it (the steps of a scenario, the database scripts...).
+// to remove it (e.g., the database scripts).
 import { html, iconButton } from "../lib/html.js";
 
 /**

@@ -1,13 +1,13 @@
 // All the activity, which the Logs page shows (pages/logs.js):
 //   - the requests to the student's app, from the log that Silence writes (admin/logs/requests.log):
-//     those of the web app, of the student's own tools and of the panel (trying an endpoint, unit
-//     tests and scenarios: the panel records those itself, with their responses);
+//     those of the web app, of the student's own tools and of the panel (trying an endpoint and the
+//     tests: the panel records those itself, with their responses);
 //   - actions on Silence (connecting to the database, linking the users table, saving an
 //     endpoint, opening a session as a user...);
 //   - changes in the state of the project (database connected or lost, errors in the files...).
 // The panel's entries are kept in sessionStorage while the tab is open; the log is read when the
 // Logs page is shown and with its Refresh button. Each entry may link to where it happened. The
-// requests of a run of tests or of a scenario go together, in a group with its result.
+// requests of a run of tests go together, in a group with its result.
 import { parseLog, notFromPanel } from "./requestlog.js";
 import { quietReadFile, deleteFile, LOG } from "./files.js";
 
@@ -35,7 +35,7 @@ let entries = load();      // The panel's own entries
 let lines = [];            // All the lines of the log (for the statistics)
 let etag = "";             // The version of the log that was read
 let panelRequests = [];    // Requests of the panel that it does not show (e.g., rows to propose values)
-let group = null;          // The group that the entries go to now (a run of tests or a scenario)
+let group = null;          // The group that the entries go to now (a run of tests)
 const listeners = new Set();
 
 const changed = () => listeners.forEach((fn) => fn());

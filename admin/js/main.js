@@ -1,4 +1,4 @@
-// Admin panel of Silence: a single page with one view per hash (#/endpoints, #/scenarios/edit/<name>...).
+// Admin panel of Silence: a single page with one view per hash (#/endpoints, #/endpoints/edit/<file>/<name>...).
 // Each page exports render(main, app, params), crumbs(params) (the breadcrumb after "Overview",
 // as [{label, href}]) and, for the second-level pages (edit, new, try...), parent(params): where
 // the Back button goes. Optionally, leave(): when another page is shown.
@@ -10,11 +10,10 @@ import * as overview from "./pages/overview.js";
 import * as database from "./pages/database.js";
 import * as endpoints from "./pages/endpoints.js";
 import * as tests from "./pages/tests.js";
-import * as scenarios from "./pages/scenarios.js";
 import * as logs from "./pages/logs.js";
 
 // tests: the editor of the custom tests (the tests are seen in Endpoints); stats: the old name of logs
-const routes = { "": overview, overview, database, endpoints, tests, scenarios, logs, stats: logs };
+const routes = { "": overview, overview, database, endpoints, tests, logs, stats: logs };
 
 // The panel does not watch the project: it reads its state when a page is shown and after each
 // action. A change made outside it (an editor, git...) is seen when the page is shown again.
