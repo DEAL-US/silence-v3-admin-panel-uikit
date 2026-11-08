@@ -182,8 +182,8 @@ async function callableEndpoints(app) {
     const columns = (users?.columns ?? []).filter((c) => !c.autoIncrement && !c.generated).map((c) => c.name);
     const silence = (route, params) => ({ method: "POST", route, name: route.slice(1), table: auth.table,
       request_body_params: params, silence: true });
-    if (auth.login) list.push(silence("/login", [auth.identifier, auth.password]));
-    if (auth.register) list.push(silence("/register", columns));
+    if (auth.login) list.push(silence("/login", [auth.identifier.split(".").pop(), auth.password]));
+    if (auth.register && !auth.identifier.includes(".")) list.push(silence("/register", columns));
   }
   return { apiPrefix: eps.apiPrefix, endpoints: list };
 }

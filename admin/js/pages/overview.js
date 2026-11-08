@@ -108,7 +108,9 @@ const FORMS = {
         <a href="#/database/auth">Database</a>.</div>`}
       <h3>Login and register</h3>
       ${toggle("auth", "login", a.login, html`Login: <code>POST ${prefix}/login</code>`, !linked)}
-      ${toggle("auth", "register", a.register, html`Register: <code>POST ${prefix}/register</code>`, !linked)}
+      ${toggle("auth", "register", a.register, a.identifier.includes(".")
+        ? html`Register: not available, because the identifier (<code>${a.identifier}</code>) is in another table`
+        : html`Register: <code>POST ${prefix}/register</code>`, !linked || a.identifier.includes("."))}
       <div class="sa-form">${field("auth", "default_role", "Role of the new users (register)", a.default_role, { disabled: !linked })}</div>
       <h3>Passwords</h3>
       ${help(html`How they are stored in the password column. Changing it does not convert the stored ones: set them

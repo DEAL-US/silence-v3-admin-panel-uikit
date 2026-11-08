@@ -185,8 +185,9 @@ async function usersTable(body, app, redrawTabs) {
   body.innerHTML = html`
     <form id="auth-form">
       <p class="uk-text-muted">The table with the users of your application: it enables the login and the register,
-        sessions, roles (a column of the table) and owners. Login, register and passwords are in
-        <a href="#/overview/login">Overview</a>.</p>
+        sessions, roles (a column of the table) and owners. The identifier (e.g., the email) may be in a table that it
+        references, as <code>people.email</code> for <code>credentials(person_id → people, password, role)</code>; then
+        there is no register. Login, register and passwords are in <a href="#/overview/login">Overview</a>.</p>
       <div class="sa-form">
         <div class="sa-field"><label class="uk-form-label" for="auth-table">Table</label>
           <select class="uk-select" id="auth-table" name="table">${options(relations.map((t) => t.name), auth.table, "(not linked)")}</select></div>
@@ -206,9 +207,14 @@ async function usersTable(body, app, redrawTabs) {
   const fillColumns = () => {
     const table = relations.find((t) => t.name === tableSelect.value);
     const cols = table ? table.columns.map((c) => c.name) : [];
+    // The identifier may also be a column of a table that this one references (table.column)
+    const referenced = (table?.fks ?? []).flatMap((fk) => (relations.find((r) => r.name === fk.refTable)?.columns ?? [])
+      .map((c) => `${fk.refTable}.${c.name}`));
     for (const [field, names] of Object.entries(GUESSES)) {
-      const chosen = table && table.name === auth.table && auth[field] ? auth[field] : cols.find((c) => names.includes(c.toLowerCase()));
-      form.querySelector(`#auth-${field}`).innerHTML = options(cols, chosen, field === "role" || field === "active" ? "(none)" : "—");
+      const choices = field === "identifier" ? [...cols, ...referenced] : cols;
+      const guess = choices.find((c) => names.includes(c.split(".").pop().toLowerCase()));
+      const chosen = table && table.name === auth.table && auth[field] ? auth[field] : guess;
+      form.querySelector(`#auth-${field}`).innerHTML = options(choices, chosen, field === "role" || field === "active" ? "(none)" : "—");
     }
   };
   tableSelect.addEventListener("change", fillColumns);
@@ -222,6 +228,7 @@ async function usersTable(body, app, redrawTabs) {
       return;
     }
     if (!v.table) Object.assign(v, { identifier: "", password: "", role: "", active: "" });
+    if (v.identifier?.includes(".")) v.register = false;  // A new user would need a row in the other table first
     if (await attempt(() => api("/config/auth", "PATCH", v), "Saved in silence.json")) {
       await app.refreshStatus();
       redrawTabs();  // The Users tab is enabled (or disabled) as the table is linked (or not)
