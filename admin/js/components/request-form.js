@@ -18,7 +18,7 @@ export const endpointKey = (e) => `${e.method} ${e.route}`;
 export async function requestContext(app) {
   const eps = await attempt(() => loadEndpoints({ quiet: true }));
   if (!eps) return null;
-  const endpoints = [...eps.endpoints].sort((a, b) => a.route.localeCompare(b.route) || a.method.localeCompare(b.method));
+  const endpoints = eps.endpoints.filter((e) => !e.disabled).sort((a, b) => a.route.localeCompare(b.route) || a.method.localeCompare(b.method));
   const auth = app.status.auth;
   let users = [];
   if (auth.linked) {

@@ -145,7 +145,7 @@ async function tables(body, app) {
     columnCount: r.columns.length,
     references: [...new Set(r.fks.map((f) => f.refTable))],
     referencedBy: schema.relations.filter((x) => x.fks.some((f) => same(f.refTable, r.name))).map((x) => x.name),
-    endpoints: eps.endpoints.filter((e) => same(e.table, r.name)).length,
+    endpoints: eps.endpoints.filter((e) => same(e.table, r.name) && !e.disabled).length,
   }));
   const tableCount = rows.filter((r) => !r.view).length;
   const names = (list) => (list.length ? list.map((n, i) => html`${i ? " " : ""}<code>${n}</code>`) : muted());
