@@ -22,7 +22,7 @@ needs (`api`); Silence warns when they do not match.
 ## Structure
 
 - `admin/index.html`: the layout (sidebar, breadcrumb, page, console); no modal windows.
-- `admin/js/main.js`: the hash router (`#/tests/composite/edit/<name>`…), the breadcrumb bar
+- `admin/js/main.js`: the hash router (`#/tests/scenarios/edit/<name>`…), the breadcrumb bar
   (fixed at the top, with the Back button at its other end, only in second-level pages), and the
   state of the project, read when a page is shown and after each action (the panel does not
   watch the project). The panel does not watch the project: it reads its state when a

@@ -42,7 +42,7 @@ test("parseUnit: short and long forms, and what is not a unit test", () => {
     { request: { method: "GET", path: "/employees/1", body: null, as: 2 }, expect: { status: 200 } });
   assert.deepEqual(parseUnit({ request: { method: "put", path: "/x", body: { a: 1 } }, expect: { status: 403 } }),
     { request: { method: "PUT", path: "/x", body: { a: 1 }, as: null }, expect: { status: 403 } });
-  assert.throws(() => parseUnit({ steps: [] }), /composite/);
+  assert.throws(() => parseUnit({ steps: [] }), /scenarios/);
   assert.throws(() => parseUnit({ "GET /a": null, "POST /b": {} }), /one request/);
   assert.throws(() => parseUnit([]), /object/);
   assert.equal(expectText({}), "2xx");
