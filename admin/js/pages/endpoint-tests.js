@@ -117,31 +117,57 @@ export function endpointTests({ app, scripts, redraw }) {
   }
 
   /** Runs some tests (GET, POST, PUT, DELETE), creating the database again first if asked */
+  // While the tests run (they may take a while: the database is created again first), the summary
+  // says what is being done and how many have run, and the buttons that run tests wait
+  let running = false;
+  const RUN_BUTTONS = "#run-all, [data-action='run-endpoint-tests'], [data-action='run-test']";
+  function progress(text, done = null, total = null) {
+    const box = document.querySelector("#tests-summary");
+    if (!box) return;
+    box.innerHTML = html`<span class="sa-progress"><span uk-spinner="ratio: .6"></span> ${text}
+      ${total ? html`<progress class="uk-progress sa-progress__bar" value="${done}" max="${total}"></progress>` : ""}</span>`;
+  }
+  function busy(on) {
+    running = on;
+    document.querySelectorAll(RUN_BUTTONS).forEach((b) => {
+      b.disabled = on;
+    });
+  }
+
+  /** Runs some tests (GET, POST, PUT, DELETE), creating the database again first if asked */
   async function run(tests, { reload = false } = {}) {
-    if (reload) {
-      if (!await attempt(() => api("/database/reload", "POST"))) return;
-      // The generated tests take rows of the data (e.g., one that can be deleted): computed again
-      // from the original data, not from the data that the page read
-      const fresh = await loadTests();
-      if (fresh) {
-        all = fresh;
-        tests = tests.map((t) => fresh.units.find((u) => u.name === t.name) ?? t);
+    if (running) return toast("The tests are already running", "info");
+    busy(true);
+    try {
+      if (reload) {
+        progress("Creating the database again…");
+        if (!await attempt(() => api("/database/reload", "POST"))) return;
+        // The generated tests take rows of the data (e.g., one that can be deleted): written again
+        // by Silence from the original data
+        const fresh = await loadTests();
+        if (fresh) {
+          all = fresh;
+          tests = tests.map((t) => fresh.units.find((u) => u.name === t.name) ?? t);
+        }
       }
+      const tokens = new Map();
+      let passed = 0;
+      const ordered = sortForRun(tests);
+      // More than one: their requests together in the activity, with the result
+      const many = ordered.length > 1;
+      if (many) beginGroup("Tests", `Run ${ordered.length} tests`, "#/endpoints");
+      for (const [i, t] of ordered.entries()) {
+        progress(`Running the tests: ${i + 1} of ${ordered.length} (${passed} passed)`, i, ordered.length);
+        const step = await runUnit(t.name, t, { source: `Test ${t.name}`, tokens });
+        results.set("unit:" + t.name, { passed: step.passed, steps: [step] });
+        if (step.passed) passed++;
+      }
+      if (many) endGroup(`${passed} of ${ordered.length} passed`, passed === ordered.length);
+      toast(`${passed} of ${ordered.length} tests passed`, passed === ordered.length ? "success" : "warning");
+    } finally {
+      busy(false);
+      redraw();
     }
-    const tokens = new Map();
-    let passed = 0;
-    const ordered = sortForRun(tests);
-    // More than one: their requests together in the activity, with the result
-    const many = ordered.length > 1;
-    if (many) beginGroup("Tests", `Run ${ordered.length} tests`, "#/endpoints");
-    for (const t of ordered) {
-      const step = await runUnit(t.name, t, { source: `Test ${t.name}`, tokens });
-      results.set("unit:" + t.name, { passed: step.passed, steps: [step] });
-      if (step.passed) passed++;
-    }
-    if (many) endGroup(`${passed} of ${ordered.length} passed`, passed === ordered.length);
-    toast(`${passed} of ${ordered.length} tests passed`, passed === ordered.length ? "success" : "warning");
-    redraw();
   }
 
   /** Runs a group of tests after a confirmation: from the original data, if there are scripts */
