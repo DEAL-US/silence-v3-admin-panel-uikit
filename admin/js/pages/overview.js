@@ -188,7 +188,7 @@ const PIECES = [
   ["silence", "Silence", (v) => v?.version, "pip install --upgrade silence"],
   ["panel", "Admin panel", (v) => (v ? v.installed ?? v.version : null), "silence admin update --latest"],
   ["template", "Template of the front-end", (v) => v?.version, "it is copied when the project is created: compare it with a new one"],
-  ["ezUi", "ez-ui", (v) => v?.version, "copy the new web/ez-ui/ of its repo into the project"],
+  ["ezUi", "ez-ui", (v) => v?.version, "download it from https://iissi-us.github.io/ez-ui/ and replace web/ez-ui/"],
 ];
 
 function versionsTab(body, app) {
@@ -209,7 +209,7 @@ function versionsTab(body, app) {
             <td>${inUse ? html`<code>${inUse}</code>` : muted("not known")}
               ${key === "panel" && v?.adminApi && v.adminApi !== current.silence.adminApi
                 ? html`<br><span class="sa-fail sa-small">needs the admin API ${v.adminApi}, Silence has ${current.silence.adminApi}</span>` : ""}</td>
-            <td>${!latest ? muted() : !l ? muted("no repo") : l.error ? html`<span class="uk-text-warning sa-small">${l.error}</span>`
+            <td>${!latest ? muted() : !l ? muted("no repo") : l.private ? muted("private repo") : l.error ? html`<span class="uk-text-warning sa-small">${l.error}</span>`
               : html`<code>${l.version}</code>`}</td>
             <td class="sa-small">${newer ? html`<span class="sa-fail">A newer version:</span> <code>${how}</code>`
               : l?.version && isNewer(inUse, l.version) ? html`<span class="uk-text-muted">Newer than the published one</span>`
