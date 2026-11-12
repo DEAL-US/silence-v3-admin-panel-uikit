@@ -101,6 +101,9 @@ test("the log of requests: its lines, their statistics and the panel's own reque
   assert.deepEqual(s.web.byKind, { style: 1, image: 1 });
   assert.deepEqual(["/", "/a/index.html", "/x.JS", "/f.zip"].map(fileKind), ["page", "page", "script", "other"]);
   assert.equal(summarize([]).since, null);
+  // The time with its UTC offset: the same moment whatever the time zone of the browser
+  const [utc, madrid] = parseLog("2026-11-12T13:13:27+00:00 api GET /api/a 200 1ms 1B -\n2026-11-12T14:13:27+01:00 api GET /api/a 200 1ms 1B -");
+  assert.equal(utc.at, madrid.at);
   // The requests that the panel sent (and shows itself) are not shown twice
   const sent = [{ at: lines[0].at + 500, method: "GET", path: "/api/employees/3", status: 200 }];
   assert.equal(notFromPanel(lines, sent).length, 5);

@@ -2,7 +2,7 @@
 // student's app) as the panel uses it: its lines for the activity, and their summary for the
 // statistics. Without DOM: it can be tested.
 //
-//   2026-11-08T08:01:12 api GET /api/employees/3 200 4ms 312B /employees/$employeeId
+//   2026-11-08T08:01:12+01:00 api GET /api/employees/3 200 4ms 312B /employees/$employeeId
 //   time                group method path (and query) status time bytes route (- if none) [message]
 
 const KINDS = { html: "page", htm: "page", css: "style", js: "script", mjs: "script", json: "data", png: "image",
@@ -15,7 +15,8 @@ export function parseLog(text) {
   for (const line of String(text ?? "").split("\n")) {
     const f = line.split(" ");
     if (f.length < 8) continue;
-    const at = new Date(f[0]).getTime();  // Local time, as Silence writes it
+    // The local time of Silence with its UTC offset (without it, in older logs, the browser's own)
+    const at = new Date(f[0]).getTime();
     const status = Number(f[4]);
     if (Number.isNaN(at) || Number.isNaN(status)) continue;
     res.push({ at, group: f[1], method: f[2], path: f[3], status, ms: parseInt(f[5], 10) || 0,
