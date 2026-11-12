@@ -1,6 +1,6 @@
 # Silence admin panel
 
-The admin panel of [Silence](https://github.com/IISSI-US/silence-py) 3: a web app that
+The admin panel of [Silence](https://github.com/DEAL-US/Silence) 3: a web app that
 administers a Silence project through its admin API (`/_silence/v1`, see
 `docs/admin-api.md` in Silence). Plain HTML, CSS and JavaScript modules, with
 [UIkit](https://getuikit.com) (copied in `admin/vendor/uikit/`, MIT, no CDN) and its own
