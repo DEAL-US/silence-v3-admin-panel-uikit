@@ -16,8 +16,8 @@ function customTest(file, name, definition) {
     endpoint: definition.endpoint ?? "", definition, request, expect };
 }
 
-/** The unit tests: the generated ones (Silence computes them from the endpoints and the data) and
- *  the custom ones (the files tests/*.json). errors: what is wrong in those files */
+/** The unit tests: the generated ones (tests/auto_<table>.json, which Silence writes from the endpoints
+ *  and the data) and the custom ones (the other files of tests/). errors: what is wrong in those files */
 export async function loadTests() {
   return attempt(async () => {
     const status = await quietApi("/status");
@@ -25,6 +25,7 @@ export async function loadTests() {
     const custom = [];
     const errors = [...status.errors.tests];
     for (const { path } of await listFiles("tests")) {
+      if (path.startsWith("tests/auto_")) continue;  // The generated ones (Silence writes them), already read
       const file = path.slice("tests/".length).replace(/\.json$/, "");
       const { data } = await quietReadFile(path);
       for (const [name, definition] of Object.entries(data ?? {})) {

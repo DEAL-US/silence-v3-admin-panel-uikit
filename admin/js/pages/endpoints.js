@@ -201,7 +201,9 @@ async function listPage(main, app) {
       data-action="generate">Generate them from the database</button> (one file per table and view, with its CRUD), or
       write a custom one.`,
     columns: [
-      // The actions go first, so that they are always seen however wide the grid is
+      // The tests first (they open under the row), then the actions, so that they are always seen
+      // however wide the grid is
+      { key: "tests", label: "Tests", filter: false, value: (e) => tests.count(e), render: (e) => tests.cell(e) },
       { key: "actions", label: "", filter: false, sortable: false, className: "sa-actions", render: (e) => html`
         ${e.disabled ? "" : iconButton("play", "Try", { href: link("endpoints", "try", e.file, e.name) })}
         ${e.source === "custom" ? html`
@@ -217,7 +219,6 @@ async function listPage(main, app) {
         ${!e.disabled && e.warnings.length ? html`<br><span class="sa-small uk-text-warning">⚠ ${e.warnings.join("; ")}</span>` : ""}` },
       { key: "table", label: "Table", filter: "select" },
       { key: "source", label: "Source", filter: "select", render: (e) => sourceBadge(e.source) },
-      { key: "tests", label: "Tests", filter: false, value: (e) => tests.count(e), render: (e) => tests.cell(e) },
       { key: "published", label: "Published", filter: "select", value: (e) => (e.disabled ? "no" : "yes"), render: publishedCell },
       { key: "access", label: "Access", filter: "select", value: (e) => LEVELS[levelOf(e)], render: accessCell },
       { key: "roles", label: "Roles", filter: "select", value: (e) => (anyRole(e) ? "any" : e.allowed_roles.join(", ")), render: rolesCell },
