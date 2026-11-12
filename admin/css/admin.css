@@ -88,6 +88,12 @@ body {
   color: var(--sa-accent);
 }
 
+/* The logo of Silence (in white, for the dark sidebar), with the height of the text */
+.sa-brand__logo {
+  height: 1.35rem;
+  width: auto;
+}
+
 .sa-nav > li > a {
   display: flex;
   align-items: center;
