@@ -179,6 +179,23 @@ body {
   margin: 0;
 }
 
+/* The head of each page (its title, tabs and top toolbar): fixed under the top bar, so that what
+   it says (e.g., the progress of the tests) is seen from any point of the page.
+   --sa-topbar-h is measured by main.js */
+.sa-pagehead {
+  position: sticky;
+  top: var(--sa-topbar-h, 51px);
+  z-index: 960;
+  margin: -24px -40px 20px;
+  padding: 20px 40px 0;
+  border-bottom: 1px solid var(--sa-border);
+  background: var(--sa-page-bg);
+}
+
+.sa-pagehead > :last-child {
+  margin-bottom: 12px;
+}
+
 /* The project, at the beginning of the breadcrumb */
 .sa-crumbs > .sa-crumbs__project > a {
   padding: 2px 10px;
@@ -760,6 +777,14 @@ body {
   .sa-topbar {
     margin: -16px -16px 16px;
     padding: 10px 16px;
+  }
+
+  /* On a small screen the head scrolls with the page: fixed, it would take too much of it */
+  .sa-pagehead {
+    position: static;
+    margin: 0 0 16px;
+    padding: 0;
+    border-bottom: 0;
   }
 
 }

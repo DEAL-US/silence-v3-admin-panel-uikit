@@ -24,9 +24,9 @@ export async function render(main, app, params) {
   }
   const tab = TABS[params[0]] ? params[0] : "start";
   main.innerHTML = html`
-    <h1>${app.info?.project ?? ""}</h1>
+    <div class="sa-pagehead"><h1>${app.info?.project ?? ""}</h1>
     <p class="uk-text-muted sa-small">${app.info?.projectDir ?? ""}</p>
-    ${tabs(Object.entries(TABS).map(([key, label]) => ({ key, label, href: key === "start" ? "#/" : `#/overview/${key}` })), tab)}
+    ${tabs(Object.entries(TABS).map(([key, label]) => ({ key, label, href: key === "start" ? "#/" : `#/overview/${key}` })), tab)}</div>
     <div id="tab"></div>`;
   const body = main.querySelector("#tab");
   if (tab === "start") {

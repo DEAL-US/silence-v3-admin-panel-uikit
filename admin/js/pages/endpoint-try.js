@@ -53,7 +53,7 @@ export async function render(main, app, file, name) {
   const userOptions = (users?.users ?? []).map((u) => [u.id, `${u.identifier}${u.role ? ` (${u.role})` : ""}`]);
 
   main.innerHTML = html`
-    <h1>${methodBadge(e.method)} <span class="sa-route">${prefix + e.route}</span></h1>
+    <div class="sa-pagehead"><h1>${methodBadge(e.method)} <span class="sa-route">${prefix + e.route}</span></h1></div>
     <p class="uk-text-muted">${e.description ? `${e.description} · ` : ""}${access(e)}</p>
     <form id="try-form">
       <div class="sa-form">

@@ -100,6 +100,10 @@ function showSession() {
   box.querySelector("#end-session").addEventListener("click", () => session.set(null));
 }
 
+// The height of the top bar, for the head of the page that is fixed under it (.sa-pagehead)
+new ResizeObserver(([entry]) => document.documentElement.style.setProperty("--sa-topbar-h",
+  `${entry.target.getBoundingClientRect().height}px`)).observe($("#topbar"));
+
 function drawTopbar(crumbs, parent) {
   // The project first (highlighted), then the breadcrumb; the Back button (second-level pages) at
   // the other end of the bar

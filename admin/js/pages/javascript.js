@@ -41,8 +41,8 @@ export async function render(main, app, params) {
   if (view === "mold") return moldPage(main, name);
   const tab = TABS[view] ? view : "api";
   main.innerHTML = html`
-    <h1>JavaScript</h1>
-    ${tabs(Object.entries(TABS).map(([key, label]) => ({ key, label, href: key === "api" ? "#/js" : `#/js/${key}` })), tab)}
+    <div class="sa-pagehead"><h1>JavaScript</h1>
+    ${tabs(Object.entries(TABS).map(([key, label]) => ({ key, label, href: key === "api" ? "#/js" : `#/js/${key}` })), tab)}</div>
     <div id="tab"></div>`;
   const body = main.querySelector("#tab");
   return tab === "api" ? apiTab(body, app) : moldsTab(body, app);
@@ -155,7 +155,7 @@ async function codePage(main, path, note) {
   const file = await attempt(() => readFile(path));
   if (!file) return;
   main.innerHTML = html`
-    <h1><code>${path.split("/").pop()}</code></h1>
+    <div class="sa-pagehead"><h1><code>${path.split("/").pop()}</code></h1></div>
     <p class="uk-text-muted sa-small"><code>${path}</code>. ${note}</p>
     ${file.data === null ? html`<div class="uk-alert uk-alert-warning">There is no ${path}.</div>`
       : html`<pre class="sa-pre sa-code-view">${file.data}</pre>`}`;

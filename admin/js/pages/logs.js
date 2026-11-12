@@ -221,6 +221,7 @@ export async function render(main, app, params) {
   const target = tab === "activity" && ["endpoint", "file"].includes(params[1]) && params[2]
     ? { kind: params[1], value: params[2] } : null;
   main.innerHTML = html`
+    <div class="sa-pagehead">
     <h1>Logs</h1>
     <div class="sa-toolbar">
       <span id="since" role="status"></span>
@@ -231,6 +232,7 @@ export async function render(main, app, params) {
         title="Delete the log of requests and what this panel has noted: the activity and the statistics start again">Clear the log</button>
     </div>
     <div id="tabs"></div>
+    </div>
     <p class="uk-text-muted sa-small">${TABS[tab][1]}.</p>
     <div id="tab"></div>`;
 

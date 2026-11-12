@@ -103,8 +103,8 @@ async function listPage(main, app) {
   };
 
   main.innerHTML = html`
+    <div class="sa-pagehead">
     <h1>Endpoints</h1>
-    <div id="errors">${alertList("danger", "Endpoints not loaded", data.errors)}${alertList("danger", "Tests not loaded", tests.errors())}</div>
     <div class="sa-toolbar">
       <button class="uk-button uk-button-primary" type="button" id="generate">Generate from the database</button>
       <a class="uk-button uk-button-default" href="#/endpoints/new">New custom endpoint</a>
@@ -113,6 +113,8 @@ async function listPage(main, app) {
       <span id="tests-summary" role="status"></span>
       <span class="uk-text-muted sa-small" id="counts">${counts()}</span>
     </div>
+    </div>
+    <div id="errors">${alertList("danger", "Endpoints not loaded", data.errors)}${alertList("danger", "Tests not loaded", tests.errors())}</div>
     <p class="uk-text-muted sa-small"><strong>Access</strong>: <em>Public</em> (anyone), <em>Logged in</em> (any user with a
       session), <em>Roles</em> (only users with those roles) or <em>Owner</em> (each user only on the rows whose owner column has
       its id, also when reading, and optionally some roles on any row). Rules that depend on the logged user through other
@@ -386,7 +388,7 @@ async function editPage(main, app, file, name) {
   const tables = [...new Set(data.endpoints.map((x) => x.table))].sort();
 
   main.innerHTML = html`
-    <h1>${ep ? `Edit ${ep.method} ${data.apiPrefix + ep.route}` : "New custom endpoint"}</h1>
+    <div class="sa-pagehead"><h1>${ep ? `Edit ${ep.method} ${data.apiPrefix + ep.route}` : "New custom endpoint"}</h1></div>
     <form id="edit-form" class="sa-form sa-form--wide">
       <div class="sa-field"><label class="uk-form-label" for="ep-name">Name</label>
         <input class="uk-input" id="ep-name" name="name" value="${e.name}" required pattern="\\w+"></div>

@@ -50,7 +50,7 @@ async function editor(main, app, { file, name, from, endpointFile, endpointName 
   const generatedNames = new Set(all.units.filter((x) => x.source === "auto").map((x) => x.name));
 
   main.innerHTML = html`
-    <h1>${t ? `Edit the test ${t.name}` : copied ? `New test from ${copied.name}` : "New test"}</h1>
+    <div class="sa-pagehead"><h1>${t ? `Edit the test ${t.name}` : copied ? `New test from ${copied.name}` : "New test"}</h1></div>
     <p class="sa-small uk-text-muted">A test sends one request to an endpoint and checks the answer, for example that a
       business rule rejects some data. <em>Try it</em> sends it to your API: it may change the database.
       ${answered ? html`<br><strong>${copied.name}</strong> expected ${copied.expect.status ?? "a 2xx"} and your API answered

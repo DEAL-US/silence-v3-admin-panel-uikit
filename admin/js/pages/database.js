@@ -46,8 +46,7 @@ export async function render(main, app, params) {
   const why = blocked(requested, app, false);
   const tab = TABS[requested] && !why ? requested : "connection";
   main.innerHTML = html`
-    <h1>Database</h1>
-    <div id="db-tabs"></div>
+    <div class="sa-pagehead"><h1>Database</h1><div id="db-tabs"></div></div>
     ${why && requested && requested !== "connection" ? html`<div class="uk-alert uk-alert-warning">${why}.</div>` : ""}
     <div id="tab"></div>`;
   const nav = main.querySelector("#db-tabs");
