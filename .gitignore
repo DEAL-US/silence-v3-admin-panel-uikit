@@ -2,3 +2,6 @@ __pycache__/
 .venv/
 # What the panel saves when it is developed here (composite tests...): never in the template
 admin/data/
+
+# The development project (its secret key and database): not versioned
+silence.json
