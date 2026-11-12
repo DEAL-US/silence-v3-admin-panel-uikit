@@ -760,3 +760,14 @@ body {
 
 /* An endpoint that is not published: its row, faded (its switch, not) */
 .sa-table tr:has(.sa-unpublished) > td:not(:has(input[data-field="published"])) { opacity: .55; }
+
+/* Access: the level, and under it who can call the endpoint, in words */
+.sa-access {
+  min-width: 7.5rem;
+}
+
+.sa-who {
+  max-width: 16rem;
+  margin-top: 4px;
+  line-height: 1.3;
+}
