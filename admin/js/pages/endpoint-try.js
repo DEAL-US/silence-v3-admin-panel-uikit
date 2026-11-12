@@ -1,6 +1,6 @@
 // Trying an endpoint (#/endpoints/try/<file>/<name>): as a user chosen here (a session without
 // password), with real values proposed by a GET of the same table, and its response.
-import { html, link, methodBadge, statusClass, json, options } from "../lib/html.js";
+import { html, pageHead, link, methodBadge, statusClass, json, options } from "../lib/html.js";
 import { api, quietApi, loadEndpoints } from "../lib/api.js";
 import { session, callApi, peekApi, studentApi } from "../lib/student-api.js";
 import { attempt, toast } from "../lib/ui.js";
@@ -53,7 +53,7 @@ export async function render(main, app, file, name) {
   const userOptions = (users?.users ?? []).map((u) => [u.id, `${u.identifier}${u.role ? ` (${u.role})` : ""}`]);
 
   main.innerHTML = html`
-    <div class="sa-pagehead"><h1>${methodBadge(e.method)} <span class="sa-route">${prefix + e.route}</span></h1></div>
+    ${pageHead(html`${methodBadge(e.method)} <span class="sa-route">${prefix + e.route}</span>`)}
     <p class="uk-text-muted">${e.description ? `${e.description} · ` : ""}${access(e)}</p>
     <form id="try-form">
       <div class="sa-form">

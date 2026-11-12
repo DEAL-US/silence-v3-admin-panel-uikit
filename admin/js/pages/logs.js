@@ -9,7 +9,7 @@
 //   #/logs/silence            Silence's API: what Silence gives to the app (login, logout, GET /api).
 // The tests count too; the panel's own requests to Silence's admin API do not. "Clear the log"
 // deletes the log and the panel's entries: the activity and the statistics start again.
-import { html, json, link, tabs, methodBadge, statusClass, muted, options } from "../lib/html.js";
+import { html, pageHead, json, link, tabs, methodBadge, statusClass, muted, options } from "../lib/html.js";
 import { attempt, toast, needsConfirm } from "../lib/ui.js";
 import { dataTable } from "../components/table.js";
 import { readLog, log, activity, clearAll, subscribe } from "../lib/log.js";
@@ -221,9 +221,7 @@ export async function render(main, app, params) {
   const target = tab === "activity" && ["endpoint", "file"].includes(params[1]) && params[2]
     ? { kind: params[1], value: params[2] } : null;
   main.innerHTML = html`
-    <div class="sa-pagehead">
-    <h1>Logs</h1>
-    <div class="sa-toolbar">
+    ${pageHead("Logs", html`<div class="sa-toolbar">
       <span id="since" role="status"></span>
       <span class="sa-toolbar__spacer"></span>
       <button class="uk-button uk-button-default" type="button" id="refresh"
@@ -231,8 +229,7 @@ export async function render(main, app, params) {
       <button class="uk-button uk-button-default" type="button" id="clear"
         title="Delete the log of requests and what this panel has noted: the activity and the statistics start again">Clear the log</button>
     </div>
-    <div id="tabs"></div>
-    </div>
+    <div id="tabs"></div>`)}
     <p class="uk-text-muted sa-small">${TABS[tab][1]}.</p>
     <div id="tab"></div>`;
 

@@ -47,13 +47,17 @@ export function link(...parts) {
 }
 
 /** A small icon button for the actions of a grid row: a link (href) or a button (action). */
-export function iconButton(icon, title, { href, action, danger = false } = {}) {
+export function iconButton(icon, title, { href, action, danger = false, disabled = false } = {}) {
   const cls = `uk-icon-button sa-icon-button${danger ? " sa-icon-button--danger" : ""}`;
   return href
     ? html`<a class="${cls}" href="${href}" uk-icon="icon: ${icon}; ratio: .8" title="${title}" aria-label="${title}"></a>`
     : html`<button class="${cls}" type="button" data-action="${action}" uk-icon="icon: ${icon}; ratio: .8"
-        title="${title}" aria-label="${title}"></button>`;
+        title="${title}" aria-label="${title}" ${disabled ? "disabled" : ""}></button>`;
 }
+
+/** The head of a page, fixed under the top bar while it scrolls: its title and, under it, what
+ *  else must stay in sight (tabs, the toolbar of the page) */
+export const pageHead = (title, extra = "") => html`<div class="sa-pagehead"><h1>${title}</h1>${extra}</div>`;
 
 export const methodBadge = (m) => html`<span class="sa-method sa-method--${m}">${m}</span>`;
 

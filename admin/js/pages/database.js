@@ -3,7 +3,7 @@
 // users table) and #/database/users (the users: passwords and "act as"; .../users/password/<id>
 // to change one). The tabs that need the database are disabled while the connection fails or is
 // being changed; Users, until the users table is linked.
-import { html, tabs, options, muted } from "../lib/html.js";
+import { html, pageHead, tabs, options, muted } from "../lib/html.js";
 import { api, quietApi, loadEndpoints } from "../lib/api.js";
 import { readConfig, saveConfig, listFiles } from "../lib/files.js";
 import { attempt, toast, reloadDatabase } from "../lib/ui.js";
@@ -46,7 +46,7 @@ export async function render(main, app, params) {
   const why = blocked(requested, app, false);
   const tab = TABS[requested] && !why ? requested : "connection";
   main.innerHTML = html`
-    <div class="sa-pagehead"><h1>Database</h1><div id="db-tabs"></div></div>
+    ${pageHead("Database", html`<div id="db-tabs"></div>`)}
     ${why && requested && requested !== "connection" ? html`<div class="uk-alert uk-alert-warning">${why}.</div>` : ""}
     <div id="tab"></div>`;
   const nav = main.querySelector("#db-tabs");

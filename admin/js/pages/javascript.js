@@ -4,7 +4,7 @@
 //   #/js/molds      Molds: the molds that the project brings from its template (.silence/js_api/),
 //                   which Silence fills in (it has no front-end code of its own); #/js/mold/<name>.
 // The files are only read here: the JS API is generated with the endpoints, from the molds.
-import { html, tabs, iconButton, muted, link, switchRow } from "../lib/html.js";
+import { html, pageHead, tabs, iconButton, muted, link, switchRow } from "../lib/html.js";
 import { api } from "../lib/api.js";
 import { attempt, toast, needsConfirm } from "../lib/ui.js";
 import { formValues } from "../lib/forms.js";
@@ -41,8 +41,7 @@ export async function render(main, app, params) {
   if (view === "mold") return moldPage(main, name);
   const tab = TABS[view] ? view : "api";
   main.innerHTML = html`
-    <div class="sa-pagehead"><h1>JavaScript</h1>
-    ${tabs(Object.entries(TABS).map(([key, label]) => ({ key, label, href: key === "api" ? "#/js" : `#/js/${key}` })), tab)}</div>
+    ${pageHead("JavaScript", tabs(Object.entries(TABS).map(([key, label]) => ({ key, label, href: key === "api" ? "#/js" : `#/js/${key}` })), tab))}
     <div id="tab"></div>`;
   const body = main.querySelector("#tab");
   return tab === "api" ? apiTab(body, app) : moldsTab(body, app);
@@ -155,7 +154,7 @@ async function codePage(main, path, note) {
   const file = await attempt(() => readFile(path));
   if (!file) return;
   main.innerHTML = html`
-    <div class="sa-pagehead"><h1><code>${path.split("/").pop()}</code></h1></div>
+    ${pageHead(html`<code>${path.split("/").pop()}</code>`)}
     <p class="uk-text-muted sa-small"><code>${path}</code>. ${note}</p>
     ${file.data === null ? html`<div class="uk-alert uk-alert-warning">There is no ${path}.</div>`
       : html`<pre class="sa-pre sa-code-view">${file.data}</pre>`}`;

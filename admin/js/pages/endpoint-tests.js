@@ -67,7 +67,7 @@ export function endpointTests({ app, scripts, redraw }) {
     return html`<div class="sa-tests-panel" data-endpoint="${endpointKey(e)}">
       <div class="sa-toolbar">
         <button class="uk-button uk-button-default uk-button-small" type="button" data-action="run-endpoint-tests"
-          ${tests.length ? "" : "disabled"}>Run its ${tests.length} tests</button>
+          ${tests.length && !running ? "" : "disabled"}>Run its ${tests.length} tests</button>
         <a class="uk-button uk-button-default uk-button-small" href="${link("tests", "endpoint", e.file, e.name)}">New test for this endpoint</a>
       </div>
       ${tests.length ? rows(tests) : muted("No tests: write one for a rule of this endpoint.")}
@@ -82,7 +82,7 @@ export function endpointTests({ app, scripts, redraw }) {
         const failed = r && !r.passed;
         return html`<tr data-test="${t.name}">
           <td class="sa-actions">
-            ${iconButton("play", "Run it", { action: "run-test" })}
+            ${iconButton("play", "Run it", { action: "run-test", disabled: running })}
             ${t.source === "custom"
               ? html`${iconButton("pencil", "Edit", { href: link("tests", "edit", t.file, t.name) })}
                 ${iconButton("trash", "Delete", { action: "delete-test", danger: true })}`
@@ -110,25 +110,41 @@ export function endpointTests({ app, scripts, redraw }) {
         logout).</p>${rows(others)}` : "";
   }
 
+  /** The summary of the results, or the progress while the tests run */
   function summary() {
+    if (running) return progressView();
     const done = all.units.filter(resultOf);
     const passed = done.filter((t) => resultOf(t).passed).length;
     return done.length ? html`<span class="${passed === done.length ? "sa-pass" : "sa-fail"}">${passed} / ${done.length} tests passed</span>` : "";
   }
 
-  /** Runs some tests (GET, POST, PUT, DELETE), creating the database again first if asked */
   // While the tests run (they may take a while: the database is created again first), the summary
-  // says what is being done and how many have run, and the buttons that run tests wait
-  let running = false;
+  // says what is being done and how many have run ({text, done, total}), and the buttons that run
+  // tests wait. Both are part of what is drawn, so a redraw meanwhile keeps them
+  let running = null;
   const RUN_BUTTONS = "#run-all, [data-action='run-endpoint-tests'], [data-action='run-test']";
+  function progressView() {
+    const { text, done, total } = running;
+    return html`<span class="sa-progress"><span uk-spinner="ratio: .6"></span> <span class="sa-progress__text">${text}</span>
+      <progress class="uk-progress sa-progress__bar" value="${done ?? 0}" max="${total ?? 1}" ${total ? "" : "hidden"}></progress></span>`;
+  }
+  /** Updates the progress: only its text and bar if it is drawn, so that the spinner keeps turning */
   function progress(text, done = null, total = null) {
+    running = { text, done, total };
     const box = document.querySelector("#tests-summary");
     if (!box) return;
-    box.innerHTML = html`<span class="sa-progress"><span uk-spinner="ratio: .6"></span> ${text}
-      ${total ? html`<progress class="uk-progress sa-progress__bar" value="${done}" max="${total}"></progress>` : ""}</span>`;
+    const shown = box.querySelector(".sa-progress");
+    if (!shown) {
+      box.innerHTML = progressView();
+      return;
+    }
+    shown.querySelector(".sa-progress__text").textContent = text;
+    const bar = shown.querySelector(".sa-progress__bar");
+    bar.hidden = !total;
+    if (total) Object.assign(bar, { value: done, max: total });
   }
-  function busy(on) {
-    running = on;
+  /** The buttons that are already drawn (#run-all, in the toolbar, is not drawn again) */
+  function disableRunButtons(on) {
     document.querySelectorAll(RUN_BUTTONS).forEach((b) => {
       b.disabled = on;
     });
@@ -137,7 +153,8 @@ export function endpointTests({ app, scripts, redraw }) {
   /** Runs some tests (GET, POST, PUT, DELETE), creating the database again first if asked */
   async function run(tests, { reload = false } = {}) {
     if (running) return toast("The tests are already running", "info");
-    busy(true);
+    progress("Starting…");
+    disableRunButtons(true);
     try {
       if (reload) {
         progress("Creating the database again…");
@@ -165,7 +182,8 @@ export function endpointTests({ app, scripts, redraw }) {
       if (many) endGroup(`${passed} of ${ordered.length} passed`, passed === ordered.length);
       toast(`${passed} of ${ordered.length} tests passed`, passed === ordered.length ? "success" : "warning");
     } finally {
-      busy(false);
+      running = null;
+      disableRunButtons(false);
       redraw();
     }
   }

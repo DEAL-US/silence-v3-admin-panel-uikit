@@ -3,7 +3,7 @@
 // #/overview/advanced (database scripts, sessions, debug), and #/overview/versions (the version of
 // each piece and whether there is a newer one). The database
 // connection and the users table are in Database. Only the values that change are saved.
-import { html, tabs, switchRow, alertList, muted } from "../lib/html.js";
+import { html, pageHead, tabs, switchRow, alertList, muted } from "../lib/html.js";
 import { readConfig, saveConfig } from "../lib/files.js";
 import { api } from "../lib/api.js";
 import { attempt, toast } from "../lib/ui.js";
@@ -24,9 +24,8 @@ export async function render(main, app, params) {
   }
   const tab = TABS[params[0]] ? params[0] : "start";
   main.innerHTML = html`
-    <div class="sa-pagehead"><h1>${app.info?.project ?? ""}</h1>
-    <p class="uk-text-muted sa-small">${app.info?.projectDir ?? ""}</p>
-    ${tabs(Object.entries(TABS).map(([key, label]) => ({ key, label, href: key === "start" ? "#/" : `#/overview/${key}` })), tab)}</div>
+    ${pageHead(app.info?.project ?? "", html`<p class="uk-text-muted sa-small">${app.info?.projectDir ?? ""}</p>
+    ${tabs(Object.entries(TABS).map(([key, label]) => ({ key, label, href: key === "start" ? "#/" : `#/overview/${key}` })), tab)}`)}
     <div id="tab"></div>`;
   const body = main.querySelector("#tab");
   if (tab === "start") {
