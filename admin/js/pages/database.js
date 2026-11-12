@@ -5,10 +5,11 @@
 // being changed; Users, until the users table is linked.
 import { html, tabs, options, muted } from "../lib/html.js";
 import { api, quietApi, loadEndpoints } from "../lib/api.js";
-import { readConfig, saveConfig } from "../lib/files.js";
+import { readConfig, saveConfig, listFiles } from "../lib/files.js";
 import { attempt, toast, reloadDatabase } from "../lib/ui.js";
 import { formValues } from "../lib/forms.js";
 import { dataTable } from "../components/table.js";
+import { orderedList } from "../components/ordered-list.js";
 import { usersTab, passwordPage } from "./users.js";
 
 const TABS = { connection: "Connection", tables: "Tables and views", auth: "Users table", users: "Users" };
@@ -71,9 +72,13 @@ async function connection(body, app, redrawTabs) {
   const input = (name, label, value, type = "text", required = true) => html`<div class="sa-field">
     <label class="uk-form-label" for="db-${name}">${label}</label>
     <input class="uk-input" id="db-${name}" name="${name}" type="${type}" value="${value}" ${required ? "required" : ""}></div>`;
+  const empty = !app.status.database.error && app.status.database.tables === 0;
   body.innerHTML = html`
-    <p class="uk-text-muted">Silence uses an existing database: create it and load its data first
-      (for example, with <em>Reload the database</em>, below).</p>
+    ${empty ? html`<div class="uk-alert uk-alert-warning">The database <code>${app.status.database.name}</code> is empty:
+      choose the scripts of <code>sql/</code> that create its tables and load its data, below, and <em>Reload the
+      database</em>.</div>` : ""}
+    <p class="uk-text-muted">Silence uses an existing database: create it (it may be empty) and connect to it here. Its
+      tables and data come from the scripts of <code>sql/</code>, below.</p>
     <form class="sa-form" id="db-form">
       ${input("host", "Host", db.host)}
       ${input("port", "Port", db.port, "number")}
@@ -85,12 +90,16 @@ async function connection(body, app, redrawTabs) {
       <div class="sa-toolbar"><button class="uk-button uk-button-primary" type="submit">Test and save</button></div>
     </form>
     <div id="db-result" role="status"></div>
-    <h3>Create it again</h3>
-    <p class="uk-text-muted sa-small">Drops the database and creates it again with the scripts of <code>sql/</code>
-      ${scripts.length ? html`(${scripts.map((x, i) => html`${i ? ", " : ""}<code>${x}</code>`)}, in this order)` : "(none chosen yet)"},
-      as <code>silence createdb</code>: for example, to run the tests again from the original data. The scripts and their
-      order are set in <a href="#/overview/advanced">Overview → Advanced</a>.</p>
-    <button class="uk-button uk-button-default" type="button" id="db-reload">Reload the database</button>`;
+    <h3 id="load">Load the database</h3>
+    <p class="uk-text-muted sa-small">The scripts of the project's <code>sql/</code> folder that create the tables and load
+      the data, in the order to run them. <em>Reload the database</em> drops it and creates it again with them, as
+      <code>silence createdb</code>: also to run the tests again from the original data.</p>
+    <ol id="scripts-list"></ol>
+    <div class="sa-toolbar">
+      <select class="uk-select uk-form-width-medium" id="scripts-add" aria-label="Add a script"></select>
+      <button class="uk-button uk-button-default" type="button" id="scripts-save">Save the scripts</button>
+      <button class="uk-button ${empty ? "uk-button-primary" : "uk-button-default"}" type="button" id="db-reload">Reload the database</button>
+    </div>`;
 
   const form = body.querySelector("#db-form");
   const select = body.querySelector("#db-name");
@@ -107,8 +116,45 @@ async function connection(body, app, redrawTabs) {
     const found = await quietApi("/database/test", "POST", formValues(form)).catch(() => null);
     if (found?.databases.length) fill(found.databases);
   }
+  // The scripts: chosen among the files of sql/, in a list to move up, down and remove
+  const available = ((await listFiles("sql").catch(() => [])) ?? []).map((f) => f.path.replace(/^sql\//, ""));
+  let saved = [...scripts];
+  const list = orderedList(body.querySelector("#scripts-list"), {
+    items: scripts,
+    labels: { up: "Run it before", down: "Run it after" },
+    empty: available.length ? "None yet: add the scripts that create the tables and load the data."
+      : html`There are no scripts in <code>sql/</code>: put there the ones that create the tables and load the data.`,
+    render: (s) => html`<code class="sa-unit ${available.includes(s) ? "" : "sa-unit--missing"}">${s}</code>
+      ${available.includes(s) ? "" : html`<span class="uk-text-danger sa-small">(it is not in sql/)</span>`}`,
+    onChange: () => fillAdd(),
+  });
+  const add = body.querySelector("#scripts-add");
+  const fillAdd = () => {
+    const rest = available.filter((s) => !list.items().includes(s));
+    add.innerHTML = options(rest, "", rest.length ? "Add a script of sql/…" : "(all the scripts of sql/ are added)");
+    add.disabled = !rest.length;
+  };
+  fillAdd();
+  add.addEventListener("change", () => {
+    if (add.value) list.add(add.value);
+  });
+  const saveScripts = async () => {
+    const items = list.items();
+    if (JSON.stringify(items) === JSON.stringify(saved)) return true;
+    if (!await attempt(() => saveConfig("database", { scripts: items }), "Scripts saved in silence.json")) return false;
+    saved = items;
+    return true;
+  };
+  body.querySelector("#scripts-save").addEventListener("click", saveScripts);
+  // Reloading saves the scripts first (Silence runs the ones of silence.json)
   body.querySelector("#db-reload").addEventListener("click", async (event) => {
-    if (await reloadDatabase(event.currentTarget, scripts)) await app.refreshStatus();
+    const button = event.currentTarget;
+    if (!list.items().length) return toast("Add the scripts of sql/ that create the database first", "error");
+    if (button.dataset.armed && !await saveScripts()) return;
+    if (await reloadDatabase(button, list.items())) {
+      await app.refreshStatus();
+      body.querySelector(".uk-alert-warning")?.remove();
+    }
   });
   form.addEventListener("input", () => {
     redrawTabs(true);

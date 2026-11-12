@@ -8,7 +8,6 @@ import { readConfig, saveConfig } from "../lib/files.js";
 import { api } from "../lib/api.js";
 import { attempt, toast } from "../lib/ui.js";
 import { formValues, changes } from "../lib/forms.js";
-import { orderedList } from "../components/ordered-list.js";
 
 const TABS = { start: "Getting started", login: "Login and passwords", server: "Server", advanced: "Advanced",
   versions: "Versions" };
@@ -64,6 +63,10 @@ function start(body, s) {
       ${step(dbOk, "Connect to the database",
         dbOk ? html`Connected to <code>${s.database.name}</code>.` : s.database.error,
         "#/database/connection", dbOk ? "Change" : "Set up")}
+      ${step(dbOk && s.database.tables > 0, "Load the database",
+        !dbOk ? "After connecting to it." : s.database.tables > 0 ? html`${s.database.tables} tables in <code>${s.database.name}</code>.`
+          : "It is empty: choose the scripts of sql/ that create its tables and load its data, and reload it.",
+        "#/database/connection", dbOk && s.database.tables > 0 ? "Change" : "Load")}
       ${step(a.linked, "Link the users table (optional)",
         a.linked ? html`Users in <code>${a.table}</code>, identified by <code>${a.identifier}</code>.`
           : "Needed for login, sessions, roles and owners.",
@@ -143,15 +146,8 @@ const FORMS = {
   advanced(c) {
     return html`
       <h3>Database scripts</h3>
-      ${help(html`The scripts of the project's <code>sql/</code> folder that create the database again, in the order to run
-        them (<em>Reload the database</em> in Database and Tests, or <code>silence createdb</code>).`)}
-      <input type="hidden" data-section="database" data-type="json" name="scripts" value="${JSON.stringify(c.database.scripts ?? [])}">
-      <ol id="scripts-list"></ol>
-      <div class="sa-toolbar">
-        <label class="uk-button uk-button-default" for="scripts-file">Add scripts…</label>
-        <input type="file" id="scripts-file" accept=".sql" multiple hidden>
-        <span class="uk-text-muted sa-small">Choose them in the <code>sql/</code> folder of the project.</span>
-      </div>
+      ${help(html`The scripts of <code>sql/</code> that create and load the database: in
+        <a href="#/database/connection">Database → Connection</a>.`)}
       <h3>Sessions</h3>
       <div class="sa-form">${field("auth", "token_max_age", "Duration of a session (seconds)", c.auth.token_max_age,
         { type: "number", min: 60 })}</div>
@@ -229,34 +225,7 @@ function versionsTab(body, app) {
   draw(app.info?.versions, null);
 }
 
-/** The database scripts: added with the file explorer, in a list to move up, down and remove */
-function scriptsList(form, app) {
-  const field = form.querySelector('[name="scripts"]');
-  const list = form.querySelector("#scripts-list");
-  if (!field || !list) return;
-  // The ones that Silence says are not in sql/ (in the errors of the configuration)
-  const absent = new Set((app.status.errors.config ?? [])
-    .map((e) => e.match(/^database\.scripts: there is no sql\/(.+)$/)?.[1]).filter(Boolean));
-  const scripts = orderedList(list, {
-    items: JSON.parse(field.value),
-    labels: { up: "Run it before", down: "Run it after" },
-    empty: "None: add the scripts that create the tables and load the data.",
-    render: (s) => html`<code class="sa-unit ${absent.has(s) ? "sa-unit--missing" : ""}">${s}</code>
-      ${absent.has(s) ? html`<span class="uk-text-danger sa-small">(it is not in sql/)</span>` : ""}`,
-    onChange: (items) => {
-      field.value = JSON.stringify(items);
-    },
-  });
-  form.querySelector("#scripts-file").addEventListener("change", (event) => {
-    // The browser only says the names: Silence checks that they are in sql/ when saving
-    const names = [...event.target.files].map((f) => f.name).filter((n) => !scripts.items().includes(n));
-    event.target.value = "";
-    if (names.length) scripts.set([...scripts.items(), ...names]);
-  });
-}
-
 function settingsForm(form, app) {
-  scriptsList(form, app);
   let saved = formValues(form, { bySection: true });
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
