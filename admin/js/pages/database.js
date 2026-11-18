@@ -9,6 +9,7 @@ import { readConfig, saveConfig, listFiles } from "../lib/files.js";
 import { attempt, toast, reloadDatabase } from "../lib/ui.js";
 import { formValues } from "../lib/forms.js";
 import { dataTable } from "../components/table.js";
+import { scriptsDatabases, scriptsProblem } from "../lib/scripts.js";
 import { orderedList } from "../components/ordered-list.js";
 import { usersTab, passwordPage } from "./users.js";
 
@@ -68,6 +69,10 @@ async function connection(body, app, redrawTabs) {
   if (!res) return;
   const db = res.config.database;
   const scripts = db.scripts ?? [];
+  // With scripts that create a database, the database of the project is that one: it is not
+  // chosen here (to use another one, the scripts change)
+  const created = (await scriptsDatabases(scripts)).names;
+  const locked = scripts.length > 0 && created.length === 1;
   const input = (name, label, value, type = "text", required = true) => html`<div class="sa-field">
     <label class="uk-form-label" for="db-${name}">${label}</label>
     <input class="uk-input" id="db-${name}" name="${name}" type="${type}" value="${value}" ${required ? "required" : ""}></div>`;
@@ -83,12 +88,18 @@ async function connection(body, app, redrawTabs) {
       ${input("port", "Port", db.port, "number")}
       ${input("user", "User", db.user)}
       ${input("password", "Password", db.password, "password", false)}
-      <div class="sa-field"><label class="uk-form-label" for="db-name">Database</label>
+      ${locked ? html`<div class="sa-field"><span class="uk-form-label">Database</span>
+        <input type="hidden" id="db-name" name="name" value="${db.name}">
+        <p class="uk-margin-small-top uk-margin-remove-bottom"><code>${db.name || "(none)"}</code></p>
+        <p class="uk-text-muted sa-small uk-margin-remove-top">The one that its scripts create: to use another one,
+          change the scripts.</p></div>`
+      : html`<div class="sa-field"><label class="uk-form-label" for="db-name">Database</label>
         <select class="uk-select" id="db-name" name="name">${options(db.name ? [db.name] : [], db.name,
-          db.name ? undefined : "(test the connection to list them)")}</select></div>
+          db.name ? undefined : "(test the connection to list them)")}</select></div>`}
       <div class="sa-toolbar"><button class="uk-button uk-button-primary" type="submit">Test and save</button></div>
     </form>
     <div id="db-result" role="status"></div>
+    <div id="scripts-problem"></div>
     <h3 id="load">Load the database</h3>
     <p class="uk-text-muted sa-small">The scripts of the project's <code>sql/</code> folder that create the tables and load
       the data, in the order to run them. <em>Reload the database</em> drops it and creates it again with them, as
@@ -103,8 +114,10 @@ async function connection(body, app, redrawTabs) {
   const form = body.querySelector("#db-form");
   const select = body.querySelector("#db-name");
   const result = body.querySelector("#db-result");
-  const fill = (databases) => {
-    select.innerHTML = options(databases, select.value, "(choose one)");
+  let databases = [];  // The databases of the server (to offer the one of the scripts)
+  const fill = (found) => {
+    databases = found;
+    if (select.tagName === "SELECT") select.innerHTML = options(found, select.value, "(choose one)");
   };
   const show = (ok, text) => {
     result.innerHTML = html`<div class="uk-alert uk-alert-${ok ? "success" : "warning"}">${text}</div>`;
@@ -125,7 +138,10 @@ async function connection(body, app, redrawTabs) {
       : html`There are no scripts in <code>sql/</code>: put there the ones that create the tables and load the data.`,
     render: (s) => html`<code class="sa-unit ${available.includes(s) ? "" : "sa-unit--missing"}">${s}</code>
       ${available.includes(s) ? "" : html`<span class="uk-text-danger sa-small">(it is not in sql/)</span>`}`,
-    onChange: () => fillAdd(),
+    onChange: () => {
+      fillAdd();
+      checkScripts();
+    },
   });
   const add = body.querySelector("#scripts-add");
   const fillAdd = () => {
@@ -134,6 +150,29 @@ async function connection(body, app, redrawTabs) {
     add.disabled = !rest.length;
   };
   fillAdd();
+
+  // The scripts must create the database of the project (DEAL-US/Silence#24): if they name another
+  // one, they cannot load it (they would drop and fill that one), and the reload waits
+  const reload = body.querySelector("#db-reload");
+  let problem = null;
+  async function checkScripts() {
+    const { names } = await scriptsDatabases(list.items());
+    problem = scriptsProblem(names, db.name);
+    const target = names.length === 1 ? names[0] : null;
+    const exists = target && databases.some((d) => d.toLowerCase() === target.toLowerCase());
+    body.querySelector("#scripts-problem").innerHTML = problem ? html`<div class="uk-alert uk-alert-danger">${problem}: they drop
+      and create the database that they name, so they cannot load <code>${db.name}</code>.
+      ${!target ? "Change them, so that they create only one."
+        : exists ? html`<button class="uk-button uk-button-default uk-button-small" type="button" id="use-db">Use ${target}</button>`
+        : html`There is no <code>${target}</code> yet: create it (it may be empty), and use it here.`}</div>` : "";
+    body.querySelector("#use-db")?.addEventListener("click", () => {
+      select.value = target;
+      form.requestSubmit();
+    });
+    reload.disabled = Boolean(problem);
+  }
+  await checkScripts();
+
   add.addEventListener("change", () => {
     if (add.value) list.add(add.value);
   });
@@ -146,11 +185,12 @@ async function connection(body, app, redrawTabs) {
   };
   body.querySelector("#scripts-save").addEventListener("click", saveScripts);
   // Reloading saves the scripts first (Silence runs the ones of silence.json)
-  body.querySelector("#db-reload").addEventListener("click", async (event) => {
+  reload.addEventListener("click", async (event) => {
     const button = event.currentTarget;
     if (!list.items().length) return toast("Add the scripts of sql/ that create the database first", "error");
+    if (problem) return toast(problem, "error");
     if (button.dataset.armed && !await saveScripts()) return;
-    if (await reloadDatabase(button, list.items())) {
+    if (await reloadDatabase(button, list.items(), db.name)) {
       await app.refreshStatus();
       body.querySelector(".uk-alert-warning")?.remove();
     }
@@ -161,16 +201,20 @@ async function connection(body, app, redrawTabs) {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const values = formValues(form);
+    const submit = form.querySelector("[type=submit]");
+    submit.disabled = true;
     const test = await attempt(() => api("/database/test", "POST", values));
+    submit.disabled = false;
     if (!test) return;
     if (!test.databases.length) return show(false, test.error);
     fill(test.databases);
     if (!values.name) return show(false, `Connected: now choose one of the ${test.databases.length} databases and save.`);
     if (!test.ok) return show(false, test.error);
     if (await attempt(() => saveConfig("database", values), "Connected and saved in silence.json")) {
-      show(true, html`Connected to <code>${values.name}</code> and saved in <code>silence.json</code>.`);
       await app.refreshStatus();
       redrawTabs(false);
+      // Drawn again: the database may now be the one of the scripts (and fixed)
+      return connection(body, app, redrawTabs);
     }
   });
 }

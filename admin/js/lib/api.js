@@ -2,6 +2,7 @@
 // and the errors go to the activity (Logs).
 import { logEvent } from "./log.js";
 import { describe, whereIs } from "./activity.js";
+import { begin, labelOf } from "./busy.js";
 
 export const API = "/_silence/v1";
 
@@ -17,13 +18,18 @@ export async function api(path, method = "GET", body = undefined, etag = undefin
     options.body = JSON.stringify(body);
   }
   let response;
+  let data;
+  // A call that takes a while is shown at the bottom of the sidebar while it runs
+  const task = begin(labelOf(method, path));
   try {
     response = await fetch(API + path, options);
+    data = await response.json().catch(() => ({}));
   } catch {
     if (!quiet) logEvent("Silence", `Cannot reach Silence (${method} ${path}): is 'silence run' running?`, { ok: false });
     throw new Error("Cannot reach Silence: is 'silence run' running?");
+  } finally {
+    task.end();
   }
-  const data = await response.json().catch(() => ({}));
   if (!quiet && (method !== "GET" || !response.ok)) {
     const [source, message] = describe(method, path, body, data, action);
     const ok = response.ok && !(path.startsWith("/database/test") && !data.ok);

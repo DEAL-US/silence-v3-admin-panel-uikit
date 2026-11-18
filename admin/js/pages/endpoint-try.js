@@ -1,16 +1,10 @@
-// Trying an endpoint (#/endpoints/try/<file>/<name>): as a user chosen here (a session without
-// password), with real values proposed by a GET of the same table, and its response.
+// Trying an endpoint (#/endpoints/try/<file>/<name>): as the user chosen at the bottom of the sidebar
+// (a session without password), with real values proposed by a GET of the same table, and its response.
 import { html, pageHead, link, methodBadge, statusClass, json, options } from "../lib/html.js";
-import { api, quietApi, loadEndpoints } from "../lib/api.js";
+import { loadEndpoints } from "../lib/api.js";
 import { session, callApi, peekApi, studentApi } from "../lib/student-api.js";
 import { attempt, toast } from "../lib/ui.js";
-
-/** Who can call an endpoint, in words */
-function access(e) {
-  if (!(e.auth_required || e.owner)) return "Public";
-  const anyRole = !e.allowed_roles?.length || e.allowed_roles.includes("*");
-  return `Authentication required${anyRole ? "" : `, roles ${e.allowed_roles.join(", ")}`}${e.owner ? `, owner ${e.owner}` : ""}`;
-}
+import { whoCan } from "../lib/access.js";
 
 /** Rows of the endpoint's table, to propose real values: from a GET of the student's API on the
  *  same table without params (e.g., GET /departments). [] if there is none. */
@@ -45,21 +39,15 @@ export async function render(main, app, file, name) {
   const params = [...e.route.matchAll(/\$(\w+)/g)].map((m) => m[1]);
   const bodyParams = e.method === "POST" || e.method === "PUT" ? e.request_body_params ?? [] : [];
   const linked = app.status.auth.linked;
-  const [users, sample] = await Promise.all([
-    linked ? quietApi("/users").catch(() => null) : null,
-    sampleRows(e, data.endpoints),
-  ]);
+  const sample = await sampleRows(e, data.endpoints);
   const pwd = linked ? app.status.auth.password?.toLowerCase() : null;
-  const userOptions = (users?.users ?? []).map((u) => [u.id, `${u.identifier}${u.role ? ` (${u.role})` : ""}`]);
 
   main.innerHTML = html`
     ${pageHead(html`${methodBadge(e.method)} <span class="sa-route">${prefix + e.route}</span>`)}
-    <p class="uk-text-muted">${e.description ? `${e.description} · ` : ""}${access(e)}</p>
+    <p class="uk-text-muted">${e.description ? `${e.description} · ` : ""}${whoCan(e)}</p>
+    <p id="try-as"></p>
     <form id="try-form">
       <div class="sa-form">
-        <div class="sa-field"><label class="uk-form-label" for="try-user">As user</label>
-          <select class="uk-select" id="try-user" ${users ? "" : "disabled"} title="${linked ? "" : "Link the users table to use sessions"}">
-            ${options(userOptions, session.get()?.id, "Without a session")}</select></div>
         ${sample.rows.length && (params.length || bodyParams.length) ? html`<div class="sa-field sa-span">
           <label class="uk-form-label" for="try-row">Fill with the data of a row
             <span class="uk-text-muted">(from GET ${prefix + sample.from})</span></label>
@@ -87,13 +75,15 @@ export async function render(main, app, file, name) {
     <div id="try-result" role="status"></div>`;
 
   const form = main.querySelector("#try-form");
-  form.querySelector("#try-user").addEventListener("change", async (event) => {
-    const id = event.target.value;
-    if (!id) return session.set(null);
-    const u = users.users.find((x) => String(x.id) === id);
-    const s = await attempt(() => api(`/users/${encodeURIComponent(id)}/session`, "POST"));
-    if (s) session.set({ token: s.sessionToken, label: u.identifier, id: u.id });
-  });
+  // Who it is sent as: chosen at the bottom of the sidebar
+  const showAs = () => {
+    const box = main.querySelector("#try-as");
+    if (!box) return document.removeEventListener("sa-session", showAs);  // Another page
+    const who = session.get();
+    box.innerHTML = linked ? html`Sent as <strong>${who ? who.label : "nobody (without a session)"}</strong>` : "";
+  };
+  document.addEventListener("sa-session", showAs);
+  showAs();
   form.querySelector("#try-row")?.addEventListener("change", (event) => {
     const row = sample.rows[Number(event.target.value)];
     if (!row) return;

@@ -1,21 +1,14 @@
-// Behaviour shared by the pages: notifications, confirmations without modal windows and the
-// reload of the database. UIkit (global) gives the notifications.
-/* global UIkit */
+// Behaviour shared by the pages: messages, confirmations without modal windows and the reload of
+// the database.
 import { api } from "./api.js";
-import { esc } from "./html.js";
+import { notify } from "./busy.js";
 
-const STATUS = { info: "primary", success: "success", warning: "warning", error: "danger" };
-
-/** A notification, also said to the screen readers (#announce) */
+/** A message at the bottom of the sidebar (lib/busy.js), until it is closed (its ×, or Esc for all of
+ *  them); also said to the screen readers (#announce). type: info, success, warning or error */
 export function toast(message, type = "info") {
   const announce = document.querySelector("#announce");
   if (announce) announce.textContent = message;
-  UIkit.notification({
-    message: esc(message),
-    status: STATUS[type] ?? "primary",
-    pos: "top-right",
-    timeout: type === "error" ? 8000 : 4000,
-  });
+  notify(message, type);
 }
 
 /** Runs an async action showing its error (if any) in a notification. Returns its result, or
@@ -52,13 +45,13 @@ export function needsConfirm(button, label = "Click again to confirm") {
 }
 
 /** Creates the database again with the scripts of silence.json (database.scripts), after a
- *  confirmation (a second click). Returns true if it was done. */
-export async function reloadDatabase(button, scripts) {
+ *  confirmation (a second click) that names it. Returns true if it was done. */
+export async function reloadDatabase(button, scripts, database) {
   if (!scripts?.length) {
-    toast("Choose the scripts of sql/ that create the database first, in Overview → Advanced", "error");
+    toast("Choose the scripts of sql/ that create the database first, in Database → Connection", "error");
     return false;
   }
-  if (!needsConfirm(button, "Drop and create it again?")) return false;
+  if (!needsConfirm(button, `Drop ${database} and create it again?`)) return false;
   button.disabled = true;
   const res = await attempt(() => api("/database/reload", "POST"));
   button.disabled = false;

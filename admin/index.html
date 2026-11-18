@@ -23,11 +23,13 @@
         <li><a href="#/endpoints"><span uk-icon="link"></span> Endpoints <span class="uk-badge" id="count-endpoints"></span></a></li>
         <li><a href="#/js"><span uk-icon="code"></span> JavaScript</a></li>
         <li><a href="#/logs"><span uk-icon="history"></span> Logs <span class="uk-badge sa-badge--fail" id="count-failures"></span></a></li>
+        <li class="uk-nav-divider"></li>
+        <li><a id="link-web" href="/" target="_blank" title="Your web app (web/), in another tab"><span uk-icon="world"></span>
+          Web app <span uk-icon="icon: forward; ratio: .8" class="sa-nav__external"></span></a></li>
       </ul>
       <div class="sa-side__footer">
-        <p class="sa-project" id="project-name"></p>
-        <p><a id="link-web" href="/" target="_blank">Web app <span uk-icon="icon: forward; ratio: .8"></span></a>
-          · <a id="link-api" href="/api" target="_blank">API</a></p>
+        <!-- What the panel is waiting for (lib/busy.js) -->
+        <div id="busy" class="sa-busy-list" role="status" aria-live="polite" hidden></div>
         <div id="acting-as" class="sa-acting" hidden></div>
         <p class="sa-version" id="version"></p>
       </div>

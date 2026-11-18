@@ -54,7 +54,8 @@ function add(entry) {
   changed();
 }
 
-/** A request of the panel to the student's API: {source, method, path, status, ms, ok, message, response, href} */
+/** A request of the panel to the student's API: {source, method, path, status, ms, ok, message, body (the one
+ *  sent, in a POST or a PUT), response, href} */
 export function logRequest(entry) {
   add({ kind: "request", ...entry });
 }

@@ -1,9 +1,9 @@
-// Users: the rows of the linked users table, their passwords and "act as". A tab of Database:
+// Users: the rows of the linked users table and their passwords (who the panel tries the API as is
+// chosen at the bottom of the sidebar). A tab of Database:
 // #/database/users and #/database/users/password/<id>.
 import { html, link, iconButton } from "../lib/html.js";
 import { api } from "../lib/api.js";
-import { session } from "../lib/student-api.js";
-import { attempt, toast } from "../lib/ui.js";
+import { attempt } from "../lib/ui.js";
 import { dataTable } from "../components/table.js";
 
 const PASSWORDS = {
@@ -24,14 +24,11 @@ export async function usersTab(main, app) {
       is ${mode === "argon2" ? "not an argon2 hash" : "a hash that Silence does not support"}. Set their password again.</div>` : ""}
     <p class="uk-text-muted">Table <code>${auth.table}</code>; passwords stored ${mode === "argon2" ? "encrypted (argon2)" : "as plain text"}
       (<a href="#/overview/login">change it in Overview</a>).</p>
-    <div id="grid"></div>
-    <p class="uk-text-muted sa-small">«Act as» opens a session for that user without its password: the endpoints that you
-      try in this panel are sent with its token.</p>`;
+    <div id="grid"></div>`;
 
   const columns = [
     { key: "actions", label: "", filter: false, sortable: false, className: "sa-actions", render: (u) => html`
-      ${iconButton("lock", "Set password", { href: link("database", "users", "password", u.id) })}
-      ${iconButton("user", "Act as this user (try the endpoints with its session)", { action: "act" })}` },
+      ${iconButton("lock", "Set password", { href: link("database", "users", "password", u.id) })}` },
     { key: "id", label: res.pk },
     { key: "identifier", label: auth.identifier },
   ];
@@ -44,13 +41,6 @@ export async function usersTab(main, app) {
 
   dataTable(main.querySelector("#grid"), {
     columns, rows: res.users, sort: { key: "id", dir: "asc" }, empty: "The users table is empty.",
-    onAction: async (action, u) => {
-      if (action !== "act") return;
-      const s = await attempt(() => api(`/users/${encodeURIComponent(u.id)}/session`, "POST"));
-      if (!s) return;
-      session.set({ token: s.sessionToken, label: u.identifier, id: u.id });
-      toast(`Acting as ${u.identifier}`, "success");
-    },
   });
 }
 

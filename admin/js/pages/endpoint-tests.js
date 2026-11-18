@@ -9,6 +9,8 @@ import { sortForRun, expectText, matchRoute } from "../lib/testing.js";
 import { runUnit } from "../lib/runner.js";
 import { deleteEntry, testsFile } from "../lib/files.js";
 import { beginGroup, endGroup } from "../lib/log.js";
+import { begin } from "../lib/busy.js";
+import { scriptsDatabases, scriptsProblem } from "../lib/scripts.js";
 import { results, loadTests, resultBadge, stepsDetail } from "./tests-common.js";
 
 const endpointKey = (e) => `${e.method} ${e.route}`;
@@ -82,7 +84,7 @@ export function endpointTests({ app, scripts, redraw }) {
         const failed = r && !r.passed;
         return html`<tr data-test="${t.name}">
           <td class="sa-actions">
-            ${iconButton("play", "Run it", { action: "run-test", disabled: running })}
+            ${iconButton("play", "Run it", { action: "run-test", disabled: Boolean(running) })}
             ${t.source === "custom"
               ? html`${iconButton("pencil", "Edit", { href: link("tests", "edit", t.file, t.name) })}
                 ${iconButton("trash", "Delete", { action: "delete-test", danger: true })}`
@@ -110,38 +112,22 @@ export function endpointTests({ app, scripts, redraw }) {
         logout).</p>${rows(others)}` : "";
   }
 
-  /** The summary of the results, or the progress while the tests run */
+  /** The summary of the results (while the tests run, their progress is at the bottom of the sidebar) */
   function summary() {
-    if (running) return progressView();
+    if (running) return html`<span class="uk-text-muted">Running the tests…</span>`;
     const done = all.units.filter(resultOf);
     const passed = done.filter((t) => resultOf(t).passed).length;
     return done.length ? html`<span class="${passed === done.length ? "sa-pass" : "sa-fail"}">${passed} / ${done.length} tests passed</span>` : "";
   }
 
-  // While the tests run (they may take a while: the database is created again first), the summary
-  // says what is being done and how many have run ({text, done, total}), and the buttons that run
-  // tests wait. Both are part of what is drawn, so a redraw meanwhile keeps them
-  let running = null;
+  // While the tests run (they may take a while: the database is created again first), the sidebar
+  // says what is being done and how many have run, and the buttons that run tests wait. The
+  // buttons are part of what is drawn, so a redraw meanwhile keeps them waiting
+  let running = null;  // The task of the sidebar (lib/busy.js)
   const RUN_BUTTONS = "#run-all, [data-action='run-endpoint-tests'], [data-action='run-test']";
-  function progressView() {
-    const { text, done, total } = running;
-    return html`<span class="sa-progress"><span uk-spinner="ratio: .6"></span> <span class="sa-progress__text">${text}</span>
-      <progress class="uk-progress sa-progress__bar" value="${done ?? 0}" max="${total ?? 1}" ${total ? "" : "hidden"}></progress></span>`;
-  }
-  /** Updates the progress: only its text and bar if it is drawn, so that the spinner keeps turning */
   function progress(text, done = null, total = null) {
-    running = { text, done, total };
-    const box = document.querySelector("#tests-summary");
-    if (!box) return;
-    const shown = box.querySelector(".sa-progress");
-    if (!shown) {
-      box.innerHTML = progressView();
-      return;
-    }
-    shown.querySelector(".sa-progress__text").textContent = text;
-    const bar = shown.querySelector(".sa-progress__bar");
-    bar.hidden = !total;
-    if (total) Object.assign(bar, { value: done, max: total });
+    if (running) running.update(text, done, total);
+    else running = begin(text, { done, total });
   }
   /** The buttons that are already drawn (#run-all, in the toolbar, is not drawn again) */
   function disableRunButtons(on) {
@@ -153,11 +139,12 @@ export function endpointTests({ app, scripts, redraw }) {
   /** Runs some tests (GET, POST, PUT, DELETE), creating the database again first if asked */
   async function run(tests, { reload = false } = {}) {
     if (running) return toast("The tests are already running", "info");
-    progress("Starting…");
+    progress("Starting the tests…");
+    document.querySelector("#tests-summary")?.replaceChildren(document.createTextNode("Running the tests…"));
     disableRunButtons(true);
     try {
       if (reload) {
-        progress("Creating the database again…");
+        progress("Running the tests: first, the database again…");
         if (!await attempt(() => api("/database/reload", "POST"))) return;
         // The generated tests take rows of the data (e.g., one that can be deleted): written again
         // by Silence from the original data
@@ -174,7 +161,7 @@ export function endpointTests({ app, scripts, redraw }) {
       const many = ordered.length > 1;
       if (many) beginGroup("Tests", `Run ${ordered.length} tests`, "#/endpoints");
       for (const [i, t] of ordered.entries()) {
-        progress(`Running the tests: ${i + 1} of ${ordered.length} (${passed} passed)`, i, ordered.length);
+        progress(`Running the tests (${passed} passed)…`, i, ordered.length);
         const step = await runUnit(t.name, t, { source: `Test ${t.name}`, tokens });
         results.set("unit:" + t.name, { passed: step.passed, steps: [step] });
         if (step.passed) passed++;
@@ -182,6 +169,7 @@ export function endpointTests({ app, scripts, redraw }) {
       if (many) endGroup(`${passed} of ${ordered.length} passed`, passed === ordered.length);
       toast(`${passed} of ${ordered.length} tests passed`, passed === ordered.length ? "success" : "warning");
     } finally {
+      running.end();
       running = null;
       disableRunButtons(false);
       redraw();
@@ -189,9 +177,15 @@ export function endpointTests({ app, scripts, redraw }) {
   }
 
   /** Runs a group of tests after a confirmation: from the original data, if there are scripts */
-  function runGroup(tests, button) {
+  async function runGroup(tests, button) {
     if (!tests.length) return toast("There are no tests to run", "info");
-    const question = scripts.length ? `Create the database again and run ${tests.length}?` : `Run ${tests.length}? They change the database`;
+    const database = app.status.database.name;
+    // The scripts must create the database of the project (checked on the first click)
+    if (scripts.length && !button.dataset.armed) {
+      const problem = scriptsProblem((await scriptsDatabases(scripts)).names, database);
+      if (problem) return toast(`${problem}: the tests need the database created again (see Database)`, "error");
+    }
+    const question = scripts.length ? `Create ${database} again and run ${tests.length}?` : `Run ${tests.length}? They change the database`;
     if ((scripts.length || tests.some((t) => t.request.method !== "GET")) && !needsConfirm(button, question)) return;
     run(tests, { reload: scripts.length > 0 });
   }

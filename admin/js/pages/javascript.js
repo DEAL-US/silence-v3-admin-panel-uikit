@@ -5,8 +5,7 @@
 //                   which Silence fills in (it has no front-end code of its own); #/js/mold/<name>.
 // The files are only read here: the JS API is generated with the endpoints, from the molds.
 import { html, pageHead, tabs, iconButton, muted, link, switchRow } from "../lib/html.js";
-import { api } from "../lib/api.js";
-import { attempt, toast, needsConfirm } from "../lib/ui.js";
+import { attempt } from "../lib/ui.js";
 import { formValues } from "../lib/forms.js";
 import { readConfig, saveConfig, readFile, listFiles } from "../lib/files.js";
 import { dataTable } from "../components/table.js";
@@ -61,15 +60,11 @@ async function apiTab(body, app) {
   body.innerHTML = html`
     <p class="uk-text-muted">Silence generates a JavaScript file for each table and view, with a function for each of its
       endpoints, to call your API from your web app. It is generated with the endpoints (<em>Generate from the
-      database</em>, or <code>silence createapi</code>), filling in the molds that your project brings from its template:
-      see <a href="#/js/molds">Molds</a>.</p>
+      database</em> in <a href="#/endpoints">Endpoints</a>, or <code>silence createapi</code>), and written again whenever
+      they change, filling in the molds that your project brings from its template: see <a href="#/js/molds">Molds</a>.</p>
     ${js.notGenerated
       ? html`<div class="uk-alert uk-alert-warning">The JS API is not generated: ${js.notGenerated}.</div>`
       : html`<p>Generated in <code>${js.dir}/</code>: ${rows.length} files.</p>`}
-    <div class="sa-toolbar">
-      <button class="uk-button uk-button-primary" type="button" id="generate" ${js.notGenerated ? "disabled" : ""}>
-        Generate the endpoints and the JS API</button>
-    </div>
     <div id="grid"></div>
     <h3>Settings</h3>
     <form class="sa-settings" id="settings">
@@ -82,7 +77,7 @@ async function apiTab(body, app) {
 
   dataTable(body.querySelector("#grid"), {
     rows, sort: { key: "name", dir: "asc" },
-    empty: js.notGenerated ? "Nothing generated." : "No files yet: generate the endpoints.",
+    empty: js.notGenerated ? "Nothing generated." : html`No files yet: generate the endpoints in <a href="#/endpoints">Endpoints</a>.`,
     columns: [
       { key: "actions", label: "", filter: false, sortable: false, className: "sa-actions",
         render: (f) => iconButton("code", "See its code", { href: link("js", "file", f.name) }) },
@@ -91,16 +86,6 @@ async function apiTab(body, app) {
     ],
   });
 
-  const generate = body.querySelector("#generate");
-  generate.addEventListener("click", async () => {
-    if (!needsConfirm(generate, "Overwrite the auto_ files?")) return;
-    const res = await attempt(() => api("/endpoints/generate", "POST", {}));
-    if (!res) return;
-    toast(res.jsApi.notGenerated ? `Endpoints generated; the JS API is not: ${res.jsApi.notGenerated}`
-      : `Endpoints and JS API generated in ${res.jsApi.dir}/`, res.jsApi.notGenerated ? "warning" : "success");
-    await app.refreshStatus();
-    apiTab(body, app);
-  });
   body.querySelector("#settings").addEventListener("submit", async (event) => {
     event.preventDefault();
     const values = formValues(event.currentTarget, { bySection: true }).js_api;

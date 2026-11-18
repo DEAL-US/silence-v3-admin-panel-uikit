@@ -1,6 +1,7 @@
 // The student's API: how to call it (as Silence says in GET /_silence/v1/), the user that the
 // panel acts as (its session token) and the requests, which go to the activity (Logs).
 import { logRequest, logEvent, notePanelRequest } from "./log.js";
+import { begin } from "./busy.js";
 
 export const studentApi = { prefix: "/api", sessionHeader: "Token" };
 
@@ -41,6 +42,7 @@ export async function callApi(method, path, body, { source = "Try", token, expec
   const started = performance.now();
   let status = 0;
   let data = null;
+  const task = begin(`Waiting for ${method} ${studentApi.prefix + path}…`);
   try {
     const response = await fetch(studentApi.prefix + path, options);
     status = response.status;
@@ -52,12 +54,21 @@ export async function callApi(method, path, body, { source = "Try", token, expec
     }
   } catch (error) {
     data = error.message;
+  } finally {
+    task.end();
   }
   const ms = Math.round(performance.now() - started);
   const ok = expect ? expect(status, data) : status > 0 && status < 400;
   logRequest({ source, method, path: studentApi.prefix + path, status, ms, ok, response: data, href,
+    body: options.body ? shownBody(body) : undefined,
     message: status >= 400 && data && typeof data === "object" ? data.message : "" });
   return { status, data, ms };
+}
+
+/** The body of a request as the activity shows it: without passwords, as Silence's console */
+function shownBody(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return body;
+  return Object.fromEntries(Object.entries(body).map(([k, v]) => [k, /password/i.test(k) ? "***" : v]));
 }
 
 /** GET without going to the activity (e.g., rows to propose values), with the current session */

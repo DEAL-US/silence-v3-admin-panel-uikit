@@ -115,6 +115,7 @@ body {
 
 .sa-nav .uk-badge.sa-badge--fail { background: var(--sa-delete); }
 .sa-nav .uk-badge:empty { display: none; }
+.sa-nav__external { margin-left: auto; opacity: .6; }
 
 .sa-menu-toggle {
   display: none;
@@ -129,15 +130,93 @@ body {
   margin: 6px 0;
 }
 
-.sa-project {
-  font-weight: 600;
-  word-break: break-all;
+.sa-acting {
+  margin-bottom: 14px;
+  padding: 10px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.sa-acting {
-  padding: 8px;
+.sa-acting__label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: .75rem;
+  opacity: .75;
+}
+
+.sa-acting .uk-select {
+  background-color: rgba(255, 255, 255, 0.95);
+  color: var(--sa-text);
+}
+
+/* What the panel is waiting for (lib/busy.js) */
+.sa-busy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.sa-busy {
+  padding: 10px;
+  border-left: 3px solid var(--sa-accent);
   border-radius: 4px;
   background: rgba(30, 135, 240, 0.25);
+}
+
+/* The messages (lib/busy.js): their colour, cut to three lines until they are clicked */
+.sa-busy--success { border-left-color: var(--sa-ok); background: rgba(50, 210, 150, 0.18); }
+.sa-busy--error { border-left-color: var(--sa-error); background: rgba(240, 80, 110, 0.25); }
+.sa-busy--warning { border-left-color: #faa05a; background: rgba(250, 160, 90, 0.22); }
+.sa-busy--info { border-left-color: var(--sa-accent); background: rgba(30, 135, 240, 0.25); }
+
+.sa-busy__label {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  cursor: default;
+}
+
+.sa-busy__label--cut {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  cursor: pointer;
+}
+
+.sa-busy__icon {
+  display: inline-flex;
+  width: 1rem;
+  justify-content: center;
+}
+
+.sa-busy__close {
+  margin-left: auto;
+  color: #fff;
+}
+
+.sa-busy__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #fff;
+}
+
+.sa-busy__bar {
+  height: 6px;
+  margin: 8px 0 0;
+}
+
+.sa-busy__meta {
+  margin-top: 4px;
+  font-size: .75rem;
+  opacity: .75;
+}
+
+.sa-busy__meta:empty {
+  display: none;
 }
 
 .sa-version {
@@ -547,7 +626,7 @@ body {
 }
 
 .sa-roles__button {
-  max-width: 9rem;
+  max-width: 8rem;
   overflow: hidden;
   padding: 0 8px;
   text-overflow: ellipsis;
@@ -566,7 +645,7 @@ body {
 }
 
 .sa-owner {
-  width: 7.5rem;
+  width: 6.5rem;
 }
 
 /* 13. Tests ----------------------------------------------------------------------------------- */
@@ -758,6 +837,20 @@ body {
     grid-template-columns: 1fr;
   }
 
+  /* The sidebar goes on top: its messages float at the bottom right */
+  .sa-busy-list {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 1010;
+    width: min(18rem, calc(100vw - 32px));
+    margin: 0;
+    padding: 8px;
+    border-radius: 6px;
+    background: var(--sa-side-bg);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  }
+
   .sa-side {
     position: static;
     height: auto;
@@ -768,8 +861,9 @@ body {
     align-self: flex-start;
   }
 
+  /* With the menu closed, the rest of the sidebar too (but not its messages, which float) */
   .sa-nav:not(.sa-nav--open),
-  .sa-nav:not(.sa-nav--open) ~ .sa-side__footer {
+  .sa-nav:not(.sa-nav--open) ~ .sa-side__footer > :not(.sa-busy-list) {
     display: none;
   }
 
@@ -795,26 +889,221 @@ body {
 /* An endpoint that is not published: its row, faded (its switch, not) */
 .sa-table tr:has(.sa-unpublished) > td:not(:has(input[data-field="published"])) { opacity: .55; }
 
-/* Access: the level, and under it who can call the endpoint, in words */
+/* Access: the level and, with Roles or Owner, the owner column and the roles, side by side */
 .sa-access {
-  min-width: 7.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
 }
 
-.sa-who {
-  max-width: 16rem;
-  margin-top: 4px;
-  line-height: 1.3;
+.sa-access__level {
+  width: 7.5rem;
 }
 
-/* The progress of a run of tests, in the summary of Endpoints */
-.sa-progress {
-  display: inline-flex;
+/* Wide enough for the level, the owner and the roles in a line */
+.sa-table td.sa-access-col {
+  min-width: 21rem;
+}
+
+/* The endpoint: method and route in a line, and under them its description and notes */
+.sa-endpoint {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 
-.sa-progress__bar {
-  width: 140px;
-  height: 6px;
+.sa-endpoint__desc {
+  margin-top: 2px;
+}
+
+/* The row of a group (the table of the endpoints under it) */
+.sa-table__group > th {
+  padding-top: 18px;
+  padding-bottom: 6px;
+  color: var(--sa-text);
+  font-size: .95rem;
+  font-weight: 600;
+  text-transform: none;
+}
+
+/* Logs: the body sent in a request (in its line, and when it is opened) */
+.sa-console__body {
+  flex-basis: 100%;
+  padding-left: 2px;
+  overflow: hidden;
+  color: var(--sa-console-warn);
+  font: .78rem var(--sa-mono);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Opened, the body is in its block: not in the line too */
+.sa-console__line[open] > summary .sa-console__body {
+  display: none;
+}
+
+.sa-console .sa-console__title {
+  margin: 8px 0 2px;
+  color: var(--sa-console-muted);
+  font-size: .75rem;
+  text-transform: uppercase;
+}
+
+/* The edit page of an endpoint (pages/endpoint-edit.js) */
+.sa-epform {
+  display: grid;
+  gap: 16px;
+  max-width: 64rem;
+}
+
+.sa-epform__start {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.sa-epform__start .uk-form-label {
   margin: 0;
+}
+
+.sa-epform__kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sa-epform__request {
+  display: flex;
+  align-items: stretch;
+}
+
+.sa-epform__method {
+  width: 7rem;
+  border-right: 0;
+  font: 700 .9rem var(--sa-mono);
+}
+
+.sa-epform__prefix {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid var(--sa-border);
+  background: var(--sa-page-bg);
+  color: #888;
+  font-family: var(--sa-mono);
+}
+
+.sa-epform__request .uk-input {
+  flex: 1;
+  border-left: 0;
+}
+
+.sa-epform__sql {
+  display: grid;
+  grid-template-columns: 1fr 14rem;
+  gap: 16px;
+}
+
+.sa-epform__sql .uk-textarea {
+  min-height: 9rem;
+}
+
+.sa-epform__columns {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 4px;
+}
+
+.sa-epform__columns .uk-form-label {
+  flex-basis: 100%;
+  margin: 0 0 4px;
+}
+
+.sa-chip {
+  padding: 2px 8px;
+  border: 1px solid var(--sa-border);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--sa-text);
+  font: .8rem var(--sa-mono);
+  cursor: pointer;
+}
+
+.sa-chip:hover {
+  border-color: var(--sa-accent);
+  color: var(--sa-accent);
+}
+
+.sa-epform__box {
+  padding: 12px 16px;
+  border: 1px solid var(--sa-border);
+  border-radius: 4px;
+  background: #fff;
+}
+
+.sa-epform__box h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.sa-epform__params {
+  width: auto;
+  margin: 0;
+}
+
+.sa-epform__params td {
+  padding: 3px 16px 3px 0;
+  vertical-align: middle;
+}
+
+.sa-epform__params .uk-select {
+  width: 13rem;
+}
+
+.sa-epform__example {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0;
+}
+
+.sa-epform__fn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--sa-mono);
+}
+
+.sa-epform__fn .uk-input {
+  width: 16rem;
+}
+
+.sa-epform__file {
+  width: 4ch;
+  min-width: 4ch;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 1px dashed currentColor;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+
+.sa-epform__checks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sa-epform__checks:empty {
+  display: none;
+}
+
+@media (max-width: 960px) {
+  .sa-epform__sql { grid-template-columns: 1fr; }
 }

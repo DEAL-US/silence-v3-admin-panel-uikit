@@ -4,6 +4,8 @@
 // the Back button goes. Optionally, leave(): when another page is shown.
 import { html } from "./lib/html.js";
 import { api, quietApi } from "./lib/api.js";
+import { toast } from "./lib/ui.js";
+import { closeMessages } from "./lib/busy.js";
 import { session, studentApi } from "./lib/student-api.js";
 import { logEvent, failures, subscribe } from "./lib/log.js";
 import * as overview from "./pages/overview.js";
@@ -42,16 +44,16 @@ export const app = {
     if (this.lost) logEvent("Silence", "Silence is reachable again");
     this.lost = false;
     reportChanges(this.status, s);
+    const linkedBefore = this.status?.auth.linked;
     this.status = s;
     drawSidebar(s);
+    if (linkedBefore !== s.auth.linked) showSession();
     return s;
   },
 };
 
 function drawSidebar(s) {
-  $("#project-name").textContent = app.info?.project ?? "";
   $("#version").textContent = `Silence v${app.info?.silence ?? "?"} · panel v${panel.version}`;
-  $("#link-api").href = s.apiPrefix;
   const dot = $("#dot-database");
   dot.className = `sa-dot ${s.database.error ? "sa-dot--error" : "sa-dot--ok"}`;
   dot.title = s.database.error || s.database.name;
@@ -90,14 +92,53 @@ function reportChanges(prev, s) {
   }
 }
 
-function showSession() {
+// Who the panel tries the API as (Try it): the only place where it is chosen, at the bottom of the
+// sidebar, with the users of the linked users table. Changing it opens a session for that user
+// without its password (POST /users/<id>/session) and keeps it until another one is chosen.
+let users = null;      // The users of the users table ([] if it is not linked), read when needed
+let usersKey = "";     // The users table they were read from
+
+async function loadUsers(force = false) {
+  const a = app.status?.auth;
+  const key = a?.linked ? `${a.table}/${a.identifier}/${a.role}` : "";
+  if (!force && users && key === usersKey) return;
+  usersKey = key;
+  users = key ? (await quietApi("/users").catch(() => null))?.users ?? [] : [];
+}
+
+async function showSession() {
   const box = $("#acting-as");
+  await loadUsers();
   const who = session.get();
-  box.hidden = !who;
-  if (!who) return;
-  box.innerHTML = html`Trying the API as <strong>${who.label}</strong>
-    <button class="uk-button uk-button-default uk-button-small" type="button" id="end-session">End</button>`;
-  box.querySelector("#end-session").addEventListener("click", () => session.set(null));
+  box.hidden = !app.status?.auth.linked;
+  if (box.hidden) {
+    if (who) session.set(null);  // No users table: no sessions
+    return;
+  }
+  const label = (u) => `${u.identifier}${u.role ? ` (${u.role})` : ""}`;
+  box.innerHTML = html`<label class="sa-acting__label" for="acting-user">Try the API as</label>
+    <select class="uk-select uk-form-small" id="acting-user">
+      <option value="">Without a session</option>
+      ${users.map((u) => html`<option value="${u.id}" ${String(u.id) === String(who?.id) ? "selected" : ""}>${label(u)}</option>`)}
+    </select>`;
+  const select = box.querySelector("#acting-user");
+  // The list again when it is opened (users may have been added or changed)
+  select.addEventListener("focus", async () => {
+    await loadUsers(true);
+    const chosen = select.value;
+    select.innerHTML = html`<option value="">Without a session</option>
+      ${users.map((u) => html`<option value="${u.id}" ${String(u.id) === chosen ? "selected" : ""}>${label(u)}</option>`)}`;
+  }, { once: true });
+  select.addEventListener("change", async () => {
+    if (!select.value) return session.set(null);
+    const u = users.find((x) => String(x.id) === select.value);
+    const s = await quietApi(`/users/${encodeURIComponent(u.id)}/session`, "POST").catch((error) => {
+      toast(error.message, "error");
+      return null;
+    });
+    if (s) session.set({ token: s.sessionToken, label: u.identifier, id: u.id });
+    else showSession();
+  });
 }
 
 // The height of the top bar, for the head of the page that is fixed under it (.sa-pagehead)
@@ -164,6 +205,10 @@ async function checkCompatibility() {
 }
 
 async function start() {
+  // Esc closes the messages of the sidebar
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeMessages();
+  });
   document.addEventListener("sa-session", showSession);
   window.addEventListener("hashchange", render);
   showSession();

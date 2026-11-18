@@ -70,7 +70,8 @@ function summary(e) {
         <span class="sa-route">${e.path}</span>
         <span class="sa-console__status ${lineStatus(e)}">${e.status || "—"}</span>
         ${e.ms !== undefined ? html`<span class="uk-text-muted">${e.ms} ms</span>` : ""}
-        ${e.message ? html`<span class="sa-console__message">${e.message}</span>` : ""}`
+        ${e.message ? html`<span class="sa-console__message">${e.message}</span>` : ""}
+        ${hasBody(e) ? html`<span class="sa-console__body" title="The body that was sent">${oneLine(e.body)}</span>` : ""}`
       : html`<span class="sa-console__event">${e.message}</span>`}
     ${e.href ? html`<a class="sa-console__go" href="${e.href}" title="Go there" aria-label="Go there"
       uk-icon="icon: arrow-right; ratio: .8"></a>` : ""}`;
@@ -82,10 +83,21 @@ function line(e) {
     return html`<details class="${cls}"><summary>${summary({ ...e, message: `${e.message} (${e.children.length} requests)` })}</summary>
       <div class="sa-console__group">${[...e.children].reverse().map(line)}</div></details>`;
   }
-  const detail = e.response !== undefined && e.response !== null && e.response !== "";
-  return detail
-    ? html`<details class="${cls}"><summary>${summary(e)}</summary><pre class="sa-pre">${json(e.response)}</pre></details>`
-    : html`<div class="${cls}"><div class="sa-console__summary">${summary(e)}</div></div>`;
+  const response = e.response !== undefined && e.response !== null && e.response !== "";
+  if (!response && !hasBody(e)) return html`<div class="${cls}"><div class="sa-console__summary">${summary(e)}</div></div>`;
+  // A request: the body sent and the response, each one with its title
+  const titled = e.kind === "request";
+  return html`<details class="${cls}"><summary>${summary(e)}</summary>
+    ${hasBody(e) ? html`<p class="sa-console__title">Body sent</p><pre class="sa-pre">${json(e.body)}</pre>` : ""}
+    ${response ? html`${titled ? html`<p class="sa-console__title">Response</p>` : ""}<pre class="sa-pre">${json(e.response)}</pre>` : ""}
+  </details>`;
+}
+
+const hasBody = (e) => e.body !== undefined && e.body !== null && e.body !== "";
+/** A body in one line, cut if it is long (all of it, when the line is opened) */
+function oneLine(body) {
+  const text = typeof body === "string" ? body : JSON.stringify(body);
+  return text.length > 160 ? `${text.slice(0, 160)}…` : text;
 }
 
 /** Whether an entry is a request of the endpoint ("METHOD route") or of the file of the target */

@@ -10,6 +10,7 @@ import { html } from "../lib/html.js";
  *   label,                    // header text
  *   value: (row) => any,      // value to sort and filter by (default: row[key])
  *   render: (row) => html,    // cell (html`...`; default: the value as text)
+ *   search: (row) => string,  // what its text filter looks in (default: its value)
  *   filter: "text" | "select" | false   (default "text")
  *   sortable: true | false    (default true)
  *   className                 // CSS class of the cells
@@ -18,7 +19,10 @@ import { html } from "../lib/html.js";
  * options.sort: {key, dir: "asc" | "desc"} initial order
  * options.empty: what to say when there are no rows (a text or html`...`, e.g., with the next step)
  * options.onAction: (action, row, element) => {}  for the elements with data-action in the cells
+ *   (and in options.empty, with no row: null)
  * options.after: (row) => html | ""   an extra row under a row (e.g., details)
+ * options.group: {key: (row) => string, label: (key, rows) => html}  the rows in groups (sorted by
+ *   their key, and inside each one as the grid is sorted), each one under a row with its label
  */
 export function dataTable(container, options) {
   const columns = options.columns.map((c) => ({
@@ -77,7 +81,7 @@ export function dataTable(container, options) {
     let res = rows.filter((row) => columns.every((c) => {
       const f = filters[c.key];
       if (!f) return true;
-      const v = String(valueOf(c, row));
+      const v = String(c.filter === "text" && c.search ? c.search(row) : valueOf(c, row));
       return c.filter === "select" ? v === f : v.toLowerCase().includes(f.toLowerCase());
     }));
     if (sort) {
@@ -90,6 +94,10 @@ export function dataTable(container, options) {
         return String(x).localeCompare(String(y), undefined, { numeric: true }) * factor;
       });
     }
+    if (options.group) {  // The groups in order; inside each one, the order above (a stable sort)
+      const key = (r) => String(options.group.key(r));
+      res = [...res].sort((a, b) => key(a).localeCompare(key(b), undefined, { numeric: true }));
+    }
     return res;
   }
 
@@ -99,10 +107,16 @@ export function dataTable(container, options) {
       const empty = rows.length ? "No rows match the filters." : options.empty ?? "No rows.";
       tbody.innerHTML = html`<tr><td colspan="${columns.length}" class="uk-text-muted sa-table__empty">${empty}</td></tr>`;
     } else {
+      let group = null;
       tbody.innerHTML = html`${visible.map((row) => {
         const i = rows.indexOf(row);
         const extra = options.after ? options.after(row) : "";
-        return html`<tr data-row="${i}">${columns.map((c) =>
+        const g = options.group ? String(options.group.key(row)) : null;
+        const head = g !== null && g !== group
+          ? html`<tr class="sa-table__group"><th colspan="${columns.length}" scope="rowgroup">${options.group.label(g,
+            visible.filter((r) => String(options.group.key(r)) === g))}</th></tr>` : "";
+        group = g;
+        return html`${head}<tr data-row="${i}">${columns.map((c) =>
           html`<td class="${c.className ?? ""}">${c.render ? c.render(row) : valueOf(c, row)}</td>`)}</tr>
           ${extra ? html`<tr class="sa-table__extra" data-row="${i}"><td colspan="${columns.length}">${extra}</td></tr>` : ""}`;
       })}`;
@@ -127,7 +141,9 @@ export function dataTable(container, options) {
   tbody.addEventListener("click", (event) => {
     const el = event.target.closest("[data-action]");
     if (!el || !options.onAction) return;
-    options.onAction(el.dataset.action, rows[Number(el.closest("tr[data-row]").dataset.row)], el);
+    // The message of an empty grid (options.empty) may have actions too: they have no row
+    const tr = el.closest("tr[data-row]");
+    options.onAction(el.dataset.action, tr ? rows[Number(tr.dataset.row)] : null, el);
   });
 
   drawHeaders();

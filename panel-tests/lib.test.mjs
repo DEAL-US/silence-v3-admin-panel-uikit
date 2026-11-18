@@ -162,3 +162,18 @@ test("versions: which one is newer", async () => {
   assert.equal(isNewer("2.2.0", "3.0.0.dev0"), false);  // PyPI has Silence 2: not an update
   assert.equal(isNewer("v1.0.1", null), false);
 });
+
+import { databasesIn, scriptsProblem } from "../admin/js/lib/scripts.js";
+
+test("the database that the scripts name, and whether it is the project's", () => {
+  const script = "-- A script\nDROP DATABASE IF EXISTS grades_db;\nCREATE DATABASE grades_db;\nUSE grades_db;\n"
+    + "/* USE other_db; */\nCREATE TABLE t (id INT);\n  use `grades_db`;";
+  assert.deepEqual(databasesIn(script), ["grades_db"]);
+  assert.deepEqual(databasesIn("CREATE SCHEMA IF NOT EXISTS gallery_db;\nUSE gallery_db;"), ["gallery_db"]);
+  assert.deepEqual(databasesIn("CREATE TABLE x (a INT);"), []);
+  assert.equal(scriptsProblem(["grades_db"], "grades_db"), null);
+  assert.equal(scriptsProblem(["Grades_DB"], "grades_db"), null);
+  assert.equal(scriptsProblem([], "grades_db"), null);
+  assert.match(scriptsProblem(["grades_db"], "hobbies_1n_db"), /create grades_db, and the project uses hobbies_1n_db/);
+  assert.match(scriptsProblem(["a", "b"], "a"), /more than one database/);
+});
